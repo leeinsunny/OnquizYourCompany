@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -7,24 +7,48 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
+import { useUserRole } from "@/hooks/useUserRole";
 
 const Login = () => {
   const navigate = useNavigate();
+  const { signIn, user } = useAuth();
+  const { isAdmin, loading: roleLoading } = useUserRole();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    if (user && !roleLoading) {
+      if (isAdmin) {
+        navigate("/admin/dashboard");
+      } else {
+        navigate("/employee/dashboard");
+      }
+    }
+  }, [user, isAdmin, roleLoading, navigate]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Demo: admin로 로그인하면 관리자 대시보드, 그 외는 사원 대시보드
-    if (email.includes("admin")) {
-      toast.success("관리자로 로그인했습니다");
-      navigate("/admin/dashboard");
-    } else {
-      toast.success("로그인 성공!");
-      navigate("/employee/dashboard");
+    if (!email || !password) {
+      toast.error("이메일과 비밀번호를 입력해주세요");
+      return;
     }
+
+    setLoading(true);
+    const { error } = await signIn(email, password);
+    
+    if (error) {
+      if (error.message.includes('Invalid login credentials')) {
+        toast.error("이메일 또는 비밀번호가 올바르지 않습니다");
+      } else {
+        toast.error(error.message || "로그인 중 오류가 발생했습니다");
+      }
+    }
+    
+    setLoading(false);
   };
 
   return (
@@ -101,8 +125,8 @@ const Login = () => {
                   </Label>
                 </div>
 
-                <Button type="submit" className="w-full">
-                  로그인
+                <Button type="submit" className="w-full" disabled={loading}>
+                  {loading ? "로그인 중..." : "로그인"}
                 </Button>
 
                 <div className="relative">
@@ -158,8 +182,8 @@ const Login = () => {
           </Card>
 
           <div className="mt-4 text-center text-xs text-muted-foreground">
-            <p>데모: admin이 포함된 이메일로 관리자 대시보드 접근</p>
-            <p>그 외 이메일로 사원 대시보드 접근</p>
+            <p>테스트 계정: 회사 이메일로 가입하면 자동으로 권한이 부여됩니다</p>
+            <p>첫 번째 가입자는 자동으로 super_admin이 됩니다</p>
           </div>
         </div>
       </div>

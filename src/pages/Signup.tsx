@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,9 +8,12 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Signup = () => {
   const navigate = useNavigate();
+  const { signUp, user } = useAuth();
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     email: "",
     name: "",
@@ -21,6 +24,12 @@ const Signup = () => {
     termsAccepted: false,
     privacyAccepted: false
   });
+
+  useEffect(() => {
+    if (user) {
+      navigate("/employee/dashboard");
+    }
+  }, [user, navigate]);
 
   const departments = [
     "개발팀",
@@ -33,7 +42,7 @@ const Signup = () => {
     "운영팀"
   ];
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (formData.password !== formData.confirmPassword) {
@@ -46,8 +55,25 @@ const Signup = () => {
       return;
     }
 
-    toast.success("회원가입이 완료되었습니다!");
-    navigate("/login");
+    if (formData.password.length < 6) {
+      toast.error("비밀번호는 최소 6자 이상이어야 합니다");
+      return;
+    }
+
+    setLoading(true);
+    const { error } = await signUp(formData.email, formData.password, formData.name);
+    
+    if (error) {
+      if (error.message.includes('already registered')) {
+        toast.error("이미 등록된 이메일입니다");
+      } else {
+        toast.error(error.message || "회원가입 중 오류가 발생했습니다");
+      }
+    } else {
+      navigate("/employee/dashboard");
+    }
+    
+    setLoading(false);
   };
 
   return (
@@ -191,8 +217,8 @@ const Signup = () => {
                   </div>
                 </div>
 
-                <Button type="submit" className="w-full">
-                  회원가입
+                <Button type="submit" className="w-full" disabled={loading}>
+                  {loading ? "처리 중..." : "회원가입"}
                 </Button>
 
                 <div className="text-center text-sm">
