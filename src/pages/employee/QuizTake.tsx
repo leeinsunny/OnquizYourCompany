@@ -129,7 +129,7 @@ const QuizTake = () => {
       .update({
         score: totalScore,
         total_points: totalPoints,
-        percentage: percentage.toFixed(2),
+        percentage: percentage,
         status: 'completed',
         completed_at: new Date().toISOString()
       })
