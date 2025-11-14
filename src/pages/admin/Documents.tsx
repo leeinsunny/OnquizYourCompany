@@ -13,12 +13,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import AdminLayout from "@/components/admin/AdminLayout";
 import * as pdfjsLib from 'pdfjs-dist';
+import workerSrc from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 
-// Configure PDF.js worker - use local worker instead of CDN
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.mjs',
-  import.meta.url
-).toString();
+// Configure PDF.js worker - local bundle
+pdfjsLib.GlobalWorkerOptions.workerSrc = workerSrc;
 
 interface Document {
   id: string;
@@ -247,6 +245,13 @@ const AdminDocuments = () => {
     toast.info("PDF를 처리하고 있습니다...");
 
     try {
+      // Set document status to processing
+      await supabase
+        .from('documents')
+        .update({ status: 'processing' })
+        .eq('id', doc.id);
+      fetchDocuments();
+
       // Download the file from storage
       const { data: fileData, error: downloadError } = await supabase.storage
         .from('documents')
@@ -289,6 +294,12 @@ const AdminDocuments = () => {
     } catch (error: any) {
       console.error('Quiz generation error:', error);
       toast.error(error.message || "퀴즈 생성 중 오류가 발생했습니다");
+      // Mark as failed
+      await supabase
+        .from('documents')
+        .update({ status: 'failed' })
+        .eq('id', doc.id);
+      fetchDocuments();
     } finally {
       setGeneratingQuiz(null);
     }
