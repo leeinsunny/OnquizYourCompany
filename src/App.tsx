@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
+import ProtectedRoute from "./components/ProtectedRoute";
 import Landing from "./pages/Landing";
 import Signup from "./pages/Signup";
 import Login from "./pages/Login";
@@ -27,11 +28,46 @@ const App = () => (
             <Route path="/" element={<Landing />} />
             <Route path="/signup" element={<Signup />} />
             <Route path="/login" element={<Login />} />
-            <Route path="/admin/dashboard" element={<AdminDashboard />} />
-            <Route path="/admin/documents" element={<AdminDocuments />} />
-            <Route path="/admin/quizzes" element={<AdminQuizzes />} />
-            <Route path="/employee/dashboard" element={<EmployeeDashboard />} />
-            <Route path="/employee/quiz/:quizId" element={<QuizTake />} />
+            <Route 
+              path="/admin/dashboard" 
+              element={
+                <ProtectedRoute allowedRoles={['super_admin', 'admin', 'manager']}>
+                  <AdminDashboard />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/admin/documents" 
+              element={
+                <ProtectedRoute allowedRoles={['super_admin', 'admin', 'manager']}>
+                  <AdminDocuments />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/admin/quizzes" 
+              element={
+                <ProtectedRoute allowedRoles={['super_admin', 'admin', 'manager']}>
+                  <AdminQuizzes />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/employee/dashboard" 
+              element={
+                <ProtectedRoute allowedRoles={['member']}>
+                  <EmployeeDashboard />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/employee/quiz/:quizId" 
+              element={
+                <ProtectedRoute allowedRoles={['member']}>
+                  <QuizTake />
+                </ProtectedRoute>
+              } 
+            />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
