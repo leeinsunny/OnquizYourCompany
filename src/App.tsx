@@ -11,6 +11,7 @@ import Login from "./pages/Login";
 import AdminDashboard from "./pages/admin/Dashboard";
 import AdminDocuments from "./pages/admin/Documents";
 import AdminQuizzes from "./pages/admin/Quizzes";
+import AdminUsers from "./pages/admin/Users";
 import EmployeeDashboard from "./pages/employee/Dashboard";
 import QuizTake from "./pages/employee/QuizTake";
 import NotFound from "./pages/NotFound";
@@ -53,7 +54,15 @@ const App = () => (
               } 
             />
             <Route 
-              path="/employee/dashboard" 
+              path="/admin/users" 
+              element={
+                <ProtectedRoute allowedRoles={['super_admin', 'admin']}>
+                  <AdminUsers />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/employee/dashboard"
               element={
                 <ProtectedRoute allowedRoles={['member']}>
                   <EmployeeDashboard />
