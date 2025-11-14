@@ -13,10 +13,10 @@ serve(async (req) => {
   }
 
   try {
-    const { documentId, extractedText } = await req.json();
+    const { documentId, images } = await req.json();
     
-    if (!documentId || !extractedText) {
-      throw new Error('documentId and extractedText are required');
+    if (!documentId || !images || images.length === 0) {
+      throw new Error('documentId and images are required');
     }
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
@@ -24,23 +24,20 @@ serve(async (req) => {
       throw new Error('LOVABLE_API_KEY is not configured');
     }
 
-    // Supabase 클라이언트 초기화
+    console.log(`Processing document ${documentId} with ${images.length} images`);
+
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // 문서 정보 가져오기
     const { data: document } = await supabase
       .from('documents')
-      .select('company_id, title')
+      .select('company_id, title, uploaded_by')
       .eq('id', documentId)
       .single();
 
-    if (!document) {
-      throw new Error('Document not found');
-    }
+    if (!document) throw new Error('Document not found');
 
-    // AI를 사용하여 카테고리와 퀴즈 생성
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -48,163 +45,158 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: 'google/gemini-2.5-pro',
         messages: [
           {
             role: 'system',
             content: `당신은 기업 온보딩 자료를 분석하여 카테고리를 추출하고 퀴즈를 생성하는 전문가입니다.
-주어진 텍스트에서 2-5개의 주요 카테고리를 추출하고, 각 카테고리당 3-5개의 객관식 문제를 생성하세요.
-각 문제는 4개의 선택지를 가지며, 하나만 정답입니다.`
+주어진 문서 이미지에서 텍스트를 추출하고, 2-5개의 주요 카테고리를 생성하며, 각 카테고리당 3-5개의 객관식 문제를 생성하세요.`
           },
           {
             role: 'user',
-            content: `다음 온보딩 자료를 분석하여 카테고리와 퀴즈를 생성해주세요:\n\n${extractedText.substring(0, 10000)}`
+            content: [
+              { type: 'text', text: '다음 온보딩 자료의 모든 텍스트를 추출하고, 내용을 분석하여 카테고리와 퀴즈를 생성해주세요.' },
+              ...images.map((imageUrl: string) => ({ type: 'image_url', image_url: { url: imageUrl } }))
+            ]
           }
         ],
-        tools: [
-          {
-            type: 'function',
-            function: {
-              name: 'create_quiz_structure',
-              description: '온보딩 자료에서 카테고리와 퀴즈를 생성합니다',
-              parameters: {
-                type: 'object',
-                properties: {
-                  categories: {
-                    type: 'array',
-                    items: {
-                      type: 'object',
-                      properties: {
-                        name: { type: 'string', description: '카테고리 이름' },
-                        description: { type: 'string', description: '카테고리 설명' },
-                        quizzes: {
-                          type: 'array',
-                          items: {
-                            type: 'object',
-                            properties: {
-                              question: { type: 'string', description: '문제 내용' },
-                              options: {
-                                type: 'array',
-                                items: {
-                                  type: 'object',
-                                  properties: {
-                                    text: { type: 'string' },
-                                    is_correct: { type: 'boolean' }
-                                  },
-                                  required: ['text', 'is_correct']
+        tools: [{
+          type: 'function',
+          function: {
+            name: 'create_quiz_structure',
+            description: '온보딩 자료에서 카테고리와 퀴즈를 생성합니다',
+            parameters: {
+              type: 'object',
+              properties: {
+                categories: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      name: { type: 'string' },
+                      description: { type: 'string' },
+                      quizzes: {
+                        type: 'array',
+                        items: {
+                          type: 'object',
+                          properties: {
+                            title: { type: 'string' },
+                            question: { type: 'string' },
+                            options: {
+                              type: 'array',
+                              items: {
+                                type: 'object',
+                                properties: {
+                                  text: { type: 'string' },
+                                  is_correct: { type: 'boolean' }
                                 },
-                                minItems: 4,
-                                maxItems: 4
+                                required: ['text', 'is_correct']
                               },
-                              explanation: { type: 'string', description: '정답 설명' }
+                              minItems: 4,
+                              maxItems: 4
                             },
-                            required: ['question', 'options', 'explanation']
-                          }
+                            explanation: { type: 'string' }
+                          },
+                          required: ['title', 'question', 'options', 'explanation']
                         }
-                      },
-                      required: ['name', 'description', 'quizzes']
-                    }
+                      }
+                    },
+                    required: ['name', 'description', 'quizzes']
                   }
-                },
-                required: ['categories']
-              }
+                }
+              },
+              required: ['categories']
             }
           }
-        ],
+        }],
         tool_choice: { type: 'function', function: { name: 'create_quiz_structure' } }
       }),
     });
 
-    const aiResult = await response.json();
-    console.log('AI Response:', JSON.stringify(aiResult, null, 2));
-
-    const toolCall = aiResult.choices?.[0]?.message?.tool_calls?.[0];
-    if (!toolCall) {
-      throw new Error('No tool call in AI response');
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('AI API error:', response.status, errorText);
+      throw new Error(`AI API error: ${response.status}`);
     }
+
+    const aiResponse = await response.json();
+    const toolCall = aiResponse.choices?.[0]?.message?.tool_calls?.[0];
+    if (!toolCall) throw new Error('No tool call in AI response');
 
     const quizData = JSON.parse(toolCall.function.arguments);
 
-    // 데이터베이스에 카테고리와 퀴즈 저장
-    for (const categoryData of quizData.categories) {
-      // 카테고리 생성
-      const { data: category } = await supabase
+    for (const [categoryIndex, category] of quizData.categories.entries()) {
+      const { data: categoryData, error: categoryError } = await supabase
         .from('categories')
         .insert({
           company_id: document.company_id,
           document_id: documentId,
-          name: categoryData.name,
-          description: categoryData.description
+          name: category.name,
+          description: category.description,
+          order_index: categoryIndex
         })
         .select()
         .single();
 
-      if (!category) continue;
+      if (categoryError) throw categoryError;
 
-      // 퀴즈 생성
-      const { data: quiz } = await supabase
-        .from('quizzes')
-        .insert({
-          company_id: document.company_id,
-          category_id: category.id,
-          title: `${categoryData.name} 퀴즈`,
-          description: categoryData.description,
-          created_by: document.company_id, // 시스템 생성
-          is_active: false // 관리자 승인 전까지 비활성
-        })
-        .select()
-        .single();
-
-      if (!quiz) continue;
-
-      // 문제와 선택지 생성
-      for (let i = 0; i < categoryData.quizzes.length; i++) {
-        const questionData = categoryData.quizzes[i];
-        
-        const { data: question } = await supabase
-          .from('quiz_questions')
+      for (const quiz of category.quizzes) {
+        const { data: quizData, error: quizError } = await supabase
+          .from('quizzes')
           .insert({
-            quiz_id: quiz.id,
-            question_text: questionData.question,
-            order_index: i
+            company_id: document.company_id,
+            category_id: categoryData.id,
+            title: quiz.title,
+            description: quiz.question,
+            created_by: document.uploaded_by,
+            is_active: true,
+            pass_score: 70
           })
           .select()
           .single();
 
-        if (!question) continue;
+        if (quizError) throw quizError;
 
-        // 선택지 생성
-        const options = questionData.options.map((opt: any, idx: number) => ({
-          question_id: question.id,
-          option_text: opt.text,
-          is_correct: opt.is_correct,
-          order_index: idx,
-          explanation: opt.is_correct ? questionData.explanation : null
-        }));
+        const { data: questionData, error: questionError } = await supabase
+          .from('quiz_questions')
+          .insert({
+            quiz_id: quizData.id,
+            question_text: quiz.question,
+            question_type: 'multiple_choice',
+            points: 1,
+            order_index: 0
+          })
+          .select()
+          .single();
 
-        await supabase.from('quiz_options').insert(options);
+        if (questionError) throw questionError;
+
+        for (const [optionIndex, option] of quiz.options.entries()) {
+          const { error: optionError } = await supabase
+            .from('quiz_options')
+            .insert({
+              question_id: questionData.id,
+              option_text: option.text,
+              is_correct: option.is_correct,
+              explanation: option.is_correct ? quiz.explanation : null,
+              order_index: optionIndex
+            });
+
+          if (optionError) throw optionError;
+        }
       }
     }
 
-    // 문서 상태 업데이트
-    await supabase
-      .from('documents')
-      .update({ status: 'approved' })
-      .eq('id', documentId);
+    await supabase.from('documents').update({ status: 'approved' }).eq('id', documentId);
 
     return new Response(
-      JSON.stringify({ 
-        success: true, 
-        categoriesCount: quizData.categories.length,
-        message: 'Quiz generation completed successfully' 
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify({ success: true, categoriesCreated: quizData.categories.length }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     );
-
-  } catch (error) {
-    console.error('Error in generate-quiz:', error);
+  } catch (error: any) {
+    console.error('Error:', error);
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
+      JSON.stringify({ error: error.message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
