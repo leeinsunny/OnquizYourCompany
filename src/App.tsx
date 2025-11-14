@@ -12,6 +12,7 @@ import AdminDashboard from "./pages/admin/Dashboard";
 import AdminDocuments from "./pages/admin/Documents";
 import AdminQuizzes from "./pages/admin/Quizzes";
 import AdminUsers from "./pages/admin/Users";
+import AdminSettings from "./pages/admin/Settings";
 import EmployeeDashboard from "./pages/employee/Dashboard";
 import QuizTake from "./pages/employee/QuizTake";
 import NotFound from "./pages/NotFound";
@@ -58,6 +59,14 @@ const App = () => (
               element={
                 <ProtectedRoute allowedRoles={['super_admin', 'admin']}>
                   <AdminUsers />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/admin/settings" 
+              element={
+                <ProtectedRoute allowedRoles={['super_admin']}>
+                  <AdminSettings />
                 </ProtectedRoute>
               } 
             />
