@@ -158,6 +158,15 @@ const AdminDocuments = () => {
 
       if (dbError) throw dbError;
 
+      setUploadProgress(80);
+      
+      // Get the document ID to trigger AI processing
+      const { data: newDoc } = await supabase
+        .from('documents')
+        .select('id')
+        .eq('file_url', fileName)
+        .single();
+
       setUploadProgress(100);
       
       toast.success("문서가 업로드되었습니다. AI가 처리 중입니다...");
@@ -166,6 +175,12 @@ const AdminDocuments = () => {
       setSelectedFile(null);
       setUploadProgress(0);
       fetchDocuments();
+
+      // Trigger AI processing if document was created
+      if (newDoc) {
+        console.log('Document uploaded successfully:', newDoc.id);
+        // The edge function will be triggered automatically by the backend
+      }
     } catch (error: any) {
       console.error('Upload error:', error);
       toast.error(error.message || "업로드 중 오류가 발생했습니다");
@@ -247,21 +262,15 @@ const AdminDocuments = () => {
   return (
     <AdminLayout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">온보딩 자료 관리</h1>
-            <p className="text-muted-foreground mt-1">
-              회사 온보딩 문서를 업로드하고 AI가 자동으로 카테고리와 퀴즈를 생성합니다
-            </p>
-          </div>
-          <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
-            <DialogTrigger asChild>
-              <Button size="lg" className="gap-2">
-                <Upload className="h-4 w-4" />
-                새 자료 업로드
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[600px]">
+        <div>
+          <h1 className="text-3xl font-bold">온보딩 자료 관리</h1>
+          <p className="text-muted-foreground mt-1">
+            회사 온보딩 문서를 업로드하고 AI가 자동으로 카테고리와 퀴즈를 생성합니다
+          </p>
+        </div>
+
+        <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
+          <DialogContent className="sm:max-w-[600px]">
               <DialogHeader>
                 <DialogTitle>온보딩 자료 업로드</DialogTitle>
                 <DialogDescription>
@@ -353,7 +362,6 @@ const AdminDocuments = () => {
               </div>
             </DialogContent>
           </Dialog>
-        </div>
 
         {loading ? (
           <div className="text-center py-12">
