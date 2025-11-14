@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -6,11 +6,16 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Upload, FileText, Clock, CheckCircle, AlertCircle, X, Eye, Trash2 } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Upload, FileText, Clock, CheckCircle, AlertCircle, X, Eye, Trash2, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import AdminLayout from "@/components/admin/AdminLayout";
+import * as pdfjsLib from 'pdfjs-dist';
+
+// Configure PDF.js worker
+pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
 interface Document {
   id: string;
@@ -32,6 +37,9 @@ const AdminDocuments = () => {
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
+  const [viewDialogOpen, setViewDialogOpen] = useState(false);
+  const [selectedDoc, setSelectedDoc] = useState<Document | null>(null);
+  const [generatingQuiz, setGeneratingQuiz] = useState<string | null>(null);
 
   useEffect(() => {
     fetchDocuments();
@@ -63,17 +71,17 @@ const AdminDocuments = () => {
     }
   };
 
-  const handleDragOver = useCallback((e: React.DragEvent) => {
+  const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(true);
-  }, []);
+  };
 
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
+  const handleDragLeave = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
-  }, []);
+  };
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
+  const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
     
@@ -81,7 +89,7 @@ const AdminDocuments = () => {
     if (file) {
       validateAndSetFile(file);
     }
-  }, []);
+  };
 
   const validateAndSetFile = (file: File) => {
     if (file.size > 50 * 1024 * 1024) {
@@ -154,34 +162,19 @@ const AdminDocuments = () => {
           file_type: selectedFile.type,
           file_size: selectedFile.size,
           uploaded_by: user.id,
-          status: 'processing'
+          status: 'approved'
         });
 
       if (dbError) throw dbError;
 
-      setUploadProgress(80);
-      
-      // Get the document ID to trigger AI processing
-      const { data: newDoc } = await supabase
-        .from('documents')
-        .select('id')
-        .eq('file_url', fileName)
-        .maybeSingle();
-
       setUploadProgress(100);
       
-      toast.success("문서가 업로드되었습니다. AI가 처리 중입니다...");
+      toast.success("문서가 업로드되었습니다");
       
       setUploadDialogOpen(false);
       setSelectedFile(null);
       setUploadProgress(0);
       fetchDocuments();
-
-      // Trigger AI processing if document was created
-      if (newDoc) {
-        console.log('Document uploaded successfully:', newDoc.id);
-        // The edge function will be triggered automatically by the backend
-      }
     } catch (error: any) {
       console.error('Upload error:', error);
       toast.error(error.message || "업로드 중 오류가 발생했습니다");
@@ -212,6 +205,95 @@ const AdminDocuments = () => {
     } catch (error: any) {
       toast.error(error.message || "삭제 중 오류가 발생했습니다");
     }
+  };
+
+  const convertPdfToImages = async (file: File): Promise<string[]> => {
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    const images: string[] = [];
+
+    // Convert first 10 pages max
+    const pageCount = Math.min(pdf.numPages, 10);
+    
+    for (let i = 1; i <= pageCount; i++) {
+      const page = await pdf.getPage(i);
+      const viewport = page.getViewport({ scale: 2.0 });
+      
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+      canvas.height = viewport.height;
+      canvas.width = viewport.width;
+
+      if (context) {
+        await page.render({ 
+          canvasContext: context, 
+          viewport,
+          canvas 
+        }).promise;
+        images.push(canvas.toDataURL('image/png'));
+      }
+    }
+
+    return images;
+  };
+
+  const handleGenerateQuiz = async (doc: Document) => {
+    if (!user) return;
+
+    setGeneratingQuiz(doc.id);
+    toast.info("PDF를 처리하고 있습니다...");
+
+    try {
+      // Download the file from storage
+      const { data: fileData, error: downloadError } = await supabase.storage
+        .from('documents')
+        .download(doc.file_url);
+
+      if (downloadError) throw downloadError;
+
+      // Convert PDF to images if it's a PDF
+      let images: string[] = [];
+      if (doc.file_type === 'application/pdf') {
+        const file = new File([fileData], doc.title, { type: doc.file_type });
+        images = await convertPdfToImages(file);
+        toast.info(`${images.length}개 페이지를 처리 중입니다...`);
+      } else {
+        // For images, convert to base64
+        const reader = new FileReader();
+        const base64 = await new Promise<string>((resolve) => {
+          reader.onload = () => resolve(reader.result as string);
+          reader.readAsDataURL(fileData);
+        });
+        images = [base64];
+      }
+
+      // Call edge function
+      const { data, error } = await supabase.functions.invoke('generate-quiz', {
+        body: { documentId: doc.id, images }
+      });
+
+      if (error) throw error;
+
+      toast.success("퀴즈가 생성되었습니다!");
+      
+      // Update document status
+      await supabase
+        .from('documents')
+        .update({ status: 'approved' })
+        .eq('id', doc.id);
+
+      fetchDocuments();
+    } catch (error: any) {
+      console.error('Quiz generation error:', error);
+      toast.error(error.message || "퀴즈 생성 중 오류가 발생했습니다");
+    } finally {
+      setGeneratingQuiz(null);
+    }
+  };
+
+  const handleViewDocument = (doc: Document) => {
+    setSelectedDoc(doc);
+    setViewDialogOpen(true);
   };
 
   const getStatusBadge = (status: string) => {
@@ -263,19 +345,25 @@ const AdminDocuments = () => {
   return (
     <AdminLayout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold">온보딩 자료 관리</h1>
-          <p className="text-muted-foreground mt-1">
-            회사 온보딩 문서를 업로드하고 AI가 자동으로 카테고리와 퀴즈를 생성합니다
-          </p>
-        </div>
-
-        <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">온보딩 자료 관리</h1>
+            <p className="text-muted-foreground mt-1">
+              회사 온보딩 문서를 업로드하고 AI가 자동으로 퀴즈를 생성합니다
+            </p>
+          </div>
+          <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
+            <DialogTrigger asChild>
+              <Button size="lg" className="gap-2">
+                <Upload className="h-4 w-4" />
+                자료 업로드
+              </Button>
+            </DialogTrigger>
           <DialogContent className="sm:max-w-[600px]">
               <DialogHeader>
                 <DialogTitle>온보딩 자료 업로드</DialogTitle>
                 <DialogDescription>
-                  지원 형식: PDF, PPT(X), DOC(X), XLS(X), JPG, PNG | 최대 50MB, 500페이지
+                  지원 형식: PDF, PPT(X), DOC(X), XLS(X), JPG, PNG | 최대 50MB
                 </DialogDescription>
               </DialogHeader>
               
@@ -363,6 +451,7 @@ const AdminDocuments = () => {
               </div>
             </DialogContent>
           </Dialog>
+        </div>
 
         {loading ? (
           <div className="text-center py-12">
@@ -383,53 +472,94 @@ const AdminDocuments = () => {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {documents.map((doc) => (
-              <Card key={doc.id} className="hover:shadow-md transition-shadow">
-                <CardHeader>
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1 min-w-0">
-                      <CardTitle className="text-base truncate" title={doc.title}>
-                        {doc.title}
-                      </CardTitle>
-                      <CardDescription className="mt-1">
-                        {formatDate(doc.created_at)}
-                      </CardDescription>
-                    </div>
-                    {getStatusBadge(doc.status)}
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">파일 크기</span>
-                      <span className="font-medium">{formatFileSize(doc.file_size)}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">형식</span>
-                      <span className="font-medium">
-                        {doc.file_type.split('/')[1]?.toUpperCase() || 'Unknown'}
-                      </span>
-                    </div>
-                    <div className="flex gap-2 pt-2">
-                      <Button variant="outline" size="sm" className="flex-1">
-                        <Eye className="mr-2 h-3 w-3" />
-                        상세보기
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleDelete(doc)}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+          <Card>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>문서명</TableHead>
+                  <TableHead>형식</TableHead>
+                  <TableHead>크기</TableHead>
+                  <TableHead>업로드 일시</TableHead>
+                  <TableHead>상태</TableHead>
+                  <TableHead className="text-right">작업</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {documents.map((doc) => (
+                  <TableRow key={doc.id}>
+                    <TableCell className="font-medium">{doc.title}</TableCell>
+                    <TableCell>{doc.file_type.split('/')[1]?.toUpperCase() || 'Unknown'}</TableCell>
+                    <TableCell>{formatFileSize(doc.file_size)}</TableCell>
+                    <TableCell>{formatDate(doc.created_at)}</TableCell>
+                    <TableCell>{getStatusBadge(doc.status)}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleViewDocument(doc)}
+                        >
+                          <Eye className="h-3 w-3 mr-1" />
+                          상세
+                        </Button>
+                        <Button
+                          variant="default"
+                          size="sm"
+                          onClick={() => handleGenerateQuiz(doc)}
+                          disabled={generatingQuiz === doc.id}
+                        >
+                          <Sparkles className="h-3 w-3 mr-1" />
+                          {generatingQuiz === doc.id ? '생성중...' : '퀴즈생성'}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDelete(doc)}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Card>
         )}
+
+        <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
+          <DialogContent className="sm:max-w-[600px]">
+            <DialogHeader>
+              <DialogTitle>문서 상세 정보</DialogTitle>
+            </DialogHeader>
+            {selectedDoc && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground">문서명</p>
+                    <p className="font-medium">{selectedDoc.title}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">형식</p>
+                    <p className="font-medium">{selectedDoc.file_type.split('/')[1]?.toUpperCase()}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">파일 크기</p>
+                    <p className="font-medium">{formatFileSize(selectedDoc.file_size)}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">상태</p>
+                    <div className="mt-1">{getStatusBadge(selectedDoc.status)}</div>
+                  </div>
+                  <div className="col-span-2">
+                    <p className="text-sm text-muted-foreground">업로드 일시</p>
+                    <p className="font-medium">{formatDate(selectedDoc.created_at)}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </AdminLayout>
   );
