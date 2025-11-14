@@ -135,10 +135,11 @@ const AdminDocuments = () => {
 
       setUploadProgress(30);
 
-      const fileName = `${profile.company_id}/${Date.now()}-${selectedFile.name}`;
+      const safeBase = selectedFile.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const fileName = `${profile.company_id}/${Date.now()}-${safeBase}`;
       const { error: uploadError } = await supabase.storage
         .from('documents')
-        .upload(fileName, selectedFile);
+        .upload(fileName, selectedFile, { cacheControl: '3600', upsert: false, contentType: selectedFile.type });
 
       if (uploadError) throw uploadError;
 
@@ -165,7 +166,7 @@ const AdminDocuments = () => {
         .from('documents')
         .select('id')
         .eq('file_url', fileName)
-        .single();
+        .maybeSingle();
 
       setUploadProgress(100);
       
