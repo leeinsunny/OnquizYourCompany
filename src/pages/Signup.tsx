@@ -9,10 +9,12 @@ import { useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
+import { useUserRole } from "@/hooks/useUserRole";
 
 const Signup = () => {
   const navigate = useNavigate();
   const { signUp, user } = useAuth();
+  const { isAdmin, loading: roleLoading } = useUserRole();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     email: "",
@@ -26,10 +28,14 @@ const Signup = () => {
   });
 
   useEffect(() => {
-    if (user) {
-      navigate("/employee/dashboard");
+    if (user && !roleLoading) {
+      if (isAdmin) {
+        navigate("/admin/dashboard");
+      } else {
+        navigate("/employee/dashboard");
+      }
     }
-  }, [user, navigate]);
+  }, [user, isAdmin, roleLoading, navigate]);
 
   const departments = [
     "개발팀",
@@ -40,6 +46,18 @@ const Signup = () => {
     "디자인팀",
     "기획팀",
     "운영팀"
+  ];
+
+  const jobTitles = [
+    { value: "부장", label: "부장 (퀴즈 출제 및 관리 권한)", role: "admin" },
+    { value: "이사", label: "이사 (퀴즈 출제 및 관리 권한)", role: "admin" },
+    { value: "본부장", label: "본부장 (퀴즈 출제 및 관리 권한)", role: "admin" },
+    { value: "과장", label: "과장 (퀴즈 출제 권한)", role: "manager" },
+    { value: "차장", label: "차장 (퀴즈 출제 권한)", role: "manager" },
+    { value: "팀장", label: "팀장 (퀴즈 출제 권한)", role: "manager" },
+    { value: "대리", label: "대리 (퀴즈 응시)", role: "member" },
+    { value: "사원", label: "사원 (퀴즈 응시)", role: "member" },
+    { value: "인턴", label: "인턴 (퀴즈 응시)", role: "member" }
   ];
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -60,8 +78,24 @@ const Signup = () => {
       return;
     }
 
+    if (!formData.department) {
+      toast.error("부서를 선택해주세요");
+      return;
+    }
+
+    if (!formData.jobTitle) {
+      toast.error("직급을 선택해주세요");
+      return;
+    }
+
     setLoading(true);
-    const { error } = await signUp(formData.email, formData.password, formData.name);
+    const { error } = await signUp(
+      formData.email, 
+      formData.password, 
+      formData.name,
+      formData.department,
+      formData.jobTitle
+    );
     
     if (error) {
       if (error.message.includes('already registered')) {
@@ -70,7 +104,11 @@ const Signup = () => {
         toast.error(error.message || "회원가입 중 오류가 발생했습니다");
       }
     } else {
-      navigate("/employee/dashboard");
+      if (isAdmin) {
+        navigate("/admin/dashboard");
+      } else {
+        navigate("/employee/dashboard");
+      }
     }
     
     setLoading(false);
@@ -160,10 +198,11 @@ const Signup = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="department">부서</Label>
+                  <Label htmlFor="department">부서 *</Label>
                   <Select
                     value={formData.department}
                     onValueChange={(value) => setFormData({ ...formData, department: value })}
+                    required
                   >
                     <SelectTrigger id="department">
                       <SelectValue placeholder="부서를 선택하세요" />
@@ -179,14 +218,26 @@ const Signup = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="jobTitle">직급</Label>
-                  <Input
-                    id="jobTitle"
-                    type="text"
-                    placeholder="예: 신입, 대리, 과장"
+                  <Label htmlFor="jobTitle">직급 *</Label>
+                  <Select
                     value={formData.jobTitle}
-                    onChange={(e) => setFormData({ ...formData, jobTitle: e.target.value })}
-                  />
+                    onValueChange={(value) => setFormData({ ...formData, jobTitle: value })}
+                    required
+                  >
+                    <SelectTrigger id="jobTitle">
+                      <SelectValue placeholder="직급을 선택하세요" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-popover">
+                      {jobTitles.map((title) => (
+                        <SelectItem key={title.value} value={title.value}>
+                          {title.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    직급에 따라 자동으로 권한이 부여됩니다
+                  </p>
                 </div>
 
                 <div className="space-y-3 pt-4">
