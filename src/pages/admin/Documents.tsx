@@ -259,7 +259,23 @@ const AdminDocuments = () => {
         throw new Error("PDF 파일만 지원됩니다");
       }
 
-      setExtractedText(text);
+      // Clean the OCR text using AI
+      toast.info("AI로 텍스트를 정리하고 있습니다...");
+      
+      const { data: cleanData, error: cleanError } = await supabase.functions.invoke('clean-ocr-text', {
+        body: { text }
+      });
+
+      if (cleanError) {
+        console.error('Text cleaning error:', cleanError);
+        toast.warning("텍스트 정리에 실패했습니다. 원본 텍스트를 사용합니다.");
+        setExtractedText(text);
+      } else {
+        const cleanedText = cleanData?.cleanedText || text;
+        setExtractedText(cleanedText);
+        toast.success("텍스트가 정리되었습니다!");
+      }
+
       setCurrentDocForQuiz(doc);
       setQuizModalOpen(true);
     } catch (error: any) {
