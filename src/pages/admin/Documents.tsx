@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import AdminLayout from "@/components/admin/AdminLayout";
 import * as pdfjsLib from 'pdfjs-dist';
 import workerSrc from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+import { QuizGenerationModal } from "@/components/admin/QuizGenerationModal";
 
 // Configure PDF.js worker - local bundle
 pdfjsLib.GlobalWorkerOptions.workerSrc = workerSrc;
@@ -41,6 +42,10 @@ const AdminDocuments = () => {
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState<Document | null>(null);
   const [generatingQuiz, setGeneratingQuiz] = useState<string | null>(null);
+  const [quizModalOpen, setQuizModalOpen] = useState(false);
+  const [extractedText, setExtractedText] = useState("");
+  const [currentDocForQuiz, setCurrentDocForQuiz] = useState<Document | null>(null);
+  const [companyId, setCompanyId] = useState<string>("");
 
   useEffect(() => {
     fetchDocuments();
@@ -55,6 +60,8 @@ const AdminDocuments = () => {
         .maybeSingle();
 
       if (!profile) return;
+
+      setCompanyId(profile.company_id);
 
       const { data, error } = await supabase
         .from('documents')
@@ -208,41 +215,11 @@ const AdminDocuments = () => {
     }
   };
 
-  const convertPdfToImages = async (file: File): Promise<string[]> => {
-    const arrayBuffer = await file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-    const images: string[] = [];
-
-    // Convert first 10 pages max
-    const pageCount = Math.min(pdf.numPages, 10);
-    
-    for (let i = 1; i <= pageCount; i++) {
-      const page = await pdf.getPage(i);
-      const viewport = page.getViewport({ scale: 2.0 });
-      
-      const canvas = document.createElement('canvas');
-      const context = canvas.getContext('2d');
-      canvas.height = viewport.height;
-      canvas.width = viewport.width;
-
-      if (context) {
-        await page.render({ 
-          canvasContext: context, 
-          viewport,
-          canvas 
-        }).promise;
-        images.push(canvas.toDataURL('image/png'));
-      }
-    }
-
-    return images;
-  };
-
   const handleGenerateQuiz = async (doc: Document) => {
     if (!user) return;
 
     setGeneratingQuiz(doc.id);
-    toast.info("PDF를 처리하고 있습니다...");
+    toast.info("PDF에서 텍스트를 추출하고 있습니다...");
 
     try {
       // Set document status to processing
@@ -259,41 +236,35 @@ const AdminDocuments = () => {
 
       if (downloadError) throw downloadError;
 
-      // Convert PDF to images if it's a PDF
-      let images: string[] = [];
+      // Extract text from PDF
+      let text = "";
       if (doc.file_type === 'application/pdf') {
         const file = new File([fileData], doc.title, { type: doc.file_type });
-        images = await convertPdfToImages(file);
-        toast.info(`${images.length}개 페이지를 처리 중입니다...`);
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const content = await page.getTextContent();
+          const pageText = content.items
+            .map((item: any) => item.str)
+            .join(' ');
+          text += pageText + '\n\n';
+        }
+        
+        if (!text.trim()) {
+          throw new Error("PDF에서 텍스트를 추출할 수 없습니다");
+        }
       } else {
-        // For images, convert to base64
-        const reader = new FileReader();
-        const base64 = await new Promise<string>((resolve) => {
-          reader.onload = () => resolve(reader.result as string);
-          reader.readAsDataURL(fileData);
-        });
-        images = [base64];
+        throw new Error("PDF 파일만 지원됩니다");
       }
 
-      // Call edge function
-      const { data, error } = await supabase.functions.invoke('generate-quiz', {
-        body: { documentId: doc.id, images }
-      });
-
-      if (error) throw error;
-
-      toast.success("퀴즈가 생성되었습니다!");
-      
-      // Update document status
-      await supabase
-        .from('documents')
-        .update({ status: 'approved' })
-        .eq('id', doc.id);
-
-      fetchDocuments();
+      setExtractedText(text);
+      setCurrentDocForQuiz(doc);
+      setQuizModalOpen(true);
     } catch (error: any) {
-      console.error('Quiz generation error:', error);
-      toast.error(error.message || "퀴즈 생성 중 오류가 발생했습니다");
+      console.error('Text extraction error:', error);
+      toast.error(error.message || "텍스트 추출 중 오류가 발생했습니다");
       // Mark as failed
       await supabase
         .from('documents')
@@ -303,6 +274,10 @@ const AdminDocuments = () => {
     } finally {
       setGeneratingQuiz(null);
     }
+  };
+
+  const handleQuizComplete = () => {
+    fetchDocuments();
   };
 
   const handleViewDocument = (doc: Document) => {
@@ -574,6 +549,23 @@ const AdminDocuments = () => {
             )}
           </DialogContent>
         </Dialog>
+
+        {currentDocForQuiz && user && companyId && (
+          <QuizGenerationModal
+            open={quizModalOpen}
+            onClose={() => {
+              setQuizModalOpen(false);
+              setCurrentDocForQuiz(null);
+              setExtractedText("");
+            }}
+            documentId={currentDocForQuiz.id}
+            documentTitle={currentDocForQuiz.title}
+            companyId={companyId}
+            userId={user.id}
+            extractedText={extractedText}
+            onComplete={handleQuizComplete}
+          />
+        )}
       </div>
     </AdminLayout>
   );
