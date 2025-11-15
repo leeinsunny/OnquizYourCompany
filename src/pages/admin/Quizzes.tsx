@@ -5,12 +5,12 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ClipboardList, Users, Plus, BarChart3 } from "lucide-react";
+import { ClipboardList, Users, Plus, BarChart3, Eye } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-
 import AdminLayout from "@/components/admin/AdminLayout";
+import { QuizDetailDialog } from "@/components/admin/QuizDetailDialog";
 
 const AdminQuizzes = () => {
   const { user } = useAuth();
@@ -20,6 +20,9 @@ const AdminQuizzes = () => {
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const [selectedQuiz, setSelectedQuiz] = useState<any>(null);
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
+  const [detailDialogOpen, setDetailDialogOpen] = useState(false);
+  const [detailQuizId, setDetailQuizId] = useState<string>("");
+  const [detailQuizTitle, setDetailQuizTitle] = useState<string>("");
 
   useEffect(() => {
     fetchQuizzes();
@@ -101,6 +104,12 @@ const AdminQuizzes = () => {
         ? prev.filter(id => id !== userId)
         : [...prev, userId]
     );
+  };
+
+  const handleViewQuiz = (quiz: any) => {
+    setDetailQuizId(quiz.id);
+    setDetailQuizTitle(quiz.title);
+    setDetailDialogOpen(true);
   };
 
   return (
@@ -192,6 +201,15 @@ const AdminQuizzes = () => {
                     </div>
                   </div>
                   <div className="flex gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="gap-2"
+                      onClick={() => handleViewQuiz(quiz)}
+                    >
+                      <Eye className="h-4 w-4" />
+                      상세 보기
+                    </Button>
                     <Dialog open={assignDialogOpen && selectedQuiz?.id === quiz.id} onOpenChange={(open) => {
                       setAssignDialogOpen(open);
                       if (open) setSelectedQuiz(quiz);
@@ -233,9 +251,6 @@ const AdminQuizzes = () => {
                         </div>
                       </DialogContent>
                     </Dialog>
-                    <Button variant="outline" size="sm">
-                      편집
-                    </Button>
                   </div>
                 </div>
               ))}
@@ -243,7 +258,14 @@ const AdminQuizzes = () => {
           )}
         </CardContent>
       </Card>
-    </div>
+
+      <QuizDetailDialog
+        open={detailDialogOpen}
+        onClose={() => setDetailDialogOpen(false)}
+        quizId={detailQuizId}
+        quizTitle={detailQuizTitle}
+      />
+      </div>
     </AdminLayout>
   );
 };
