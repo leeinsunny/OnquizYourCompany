@@ -32,7 +32,7 @@ export const useUserRole = () => {
     };
 
     fetchUserRole();
-  }, [user]);
+  }, [user?.id]);
 
   const isAdmin = role === 'super_admin' || role === 'admin';
   const isManager = role === 'manager';
