@@ -320,19 +320,17 @@ const AdminDocuments = () => {
       setFlowProgress(10);
 
       let text = "";
-      if (doc.file_type === 'application/pdf') {
-        const file = new File([fileData], doc.title, { type: doc.file_type });
-        const arrayBuffer = await file.arrayBuffer();
-        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-        
-        for (let i = 1; i <= pdf.numPages; i++) {
-          const page = await pdf.getPage(i);
-          const content = await page.getTextContent();
-          const pageText = content.items
-            .map((item: any) => item.str)
-            .join(' ');
-          text += pageText + '\n\n';
-        }
+      // Always attempt PDF text extraction regardless of MIME (some browsers set octet-stream)
+      const arrayBuffer = await fileData.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        const pageText = content.items
+          .map((item: any) => item.str)
+          .join(' ');
+        text += pageText + '\n\n';
       }
       
       if (!text.trim()) {
