@@ -1,7 +1,8 @@
 import { ReactNode } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import EmployeeSidebar from "@/components/employee/EmployeeSidebar";
 import { Button } from "@/components/ui/button";
-import { Home, BookOpen, ClipboardList, User, LogOut } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
@@ -10,15 +11,7 @@ interface EmployeeLayoutProps {
 }
 
 const EmployeeLayout = ({ children }: EmployeeLayoutProps) => {
-  const location = useLocation();
   const { signOut, user } = useAuth();
-
-  const navigation = [
-    { name: "홈", href: "/employee/dashboard", icon: Home },
-    { name: "온보딩 자료", href: "/employee/materials", icon: BookOpen },
-    { name: "퀴즈", href: "/employee/quizzes", icon: ClipboardList },
-    { name: "내 프로필", href: "/employee/profile", icon: User },
-  ];
 
   const handleSignOut = async () => {
     await signOut();
@@ -51,25 +44,19 @@ const EmployeeLayout = ({ children }: EmployeeLayoutProps) => {
         {/* Provider wraps the layout to enable collapsing sidebar */}
         {/* We inline import to avoid circular deps */}
         {/* eslint-disable-next-line @typescript-eslint/no-var-requires */}
-        {(() => {
-          const { SidebarProvider, SidebarTrigger } = require("@/components/ui/sidebar");
-          const EmployeeSidebar = require("@/components/employee/EmployeeSidebar").default;
-          return (
-            <SidebarProvider>
-              <div className="w-full flex">
-                <EmployeeSidebar />
-                <main className="flex-1">
-                  <div className="border-b bg-background">
-                    <div className="container py-2">
-                      <SidebarTrigger />
-                    </div>
-                  </div>
-                  <div className="container py-6">{children}</div>
-                </main>
+        <SidebarProvider>
+          <div className="w-full flex">
+            <EmployeeSidebar />
+            <main className="flex-1">
+              <div className="border-b bg-background">
+                <div className="container py-2">
+                  <SidebarTrigger />
+                </div>
               </div>
-            </SidebarProvider>
-          );
-        })()}
+              <div className="container py-6">{children}</div>
+            </main>
+          </div>
+        </SidebarProvider>
       </div>
     </div>
   );
