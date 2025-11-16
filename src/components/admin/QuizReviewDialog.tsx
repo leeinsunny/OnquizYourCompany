@@ -82,7 +82,7 @@ export const QuizReviewDialog = ({
           </DialogDescription>
         </DialogHeader>
         
-        <ScrollArea className="flex-1 min-h-0 pr-4">
+        <ScrollArea className="h-[55vh] pr-4">
           <div className="space-y-4 py-4">
             {questions.map((question, qIndex) => (
               <Card key={question.id}>
