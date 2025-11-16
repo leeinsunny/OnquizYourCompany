@@ -63,25 +63,34 @@ const MaterialDetail = ({ documentId, onBack }: MaterialDetailProps) => {
   const cleanAndHighlightText = async (ocrText: string) => {
     try {
       setHighlighting(true);
-      console.log('Starting clean and highlight for saved OCR text');
-      
+      console.log('Starting clean and format for saved OCR text');
+
       // Step 1: Clean the text for better readability
       const { data: cleaned, error: cleanError } = await supabase.functions.invoke('clean-ocr-text', {
         body: { text: ocrText }
       });
-      
       const cleanedText = cleaned?.cleanedText || ocrText;
       if (cleanError) console.warn('clean-ocr-text error:', cleanError);
 
-      // Step 2: Highlight important parts
-      const { data: highlighted, error: highlightError } = await supabase.functions.invoke('highlight-text', {
+      // Step 2: Format into structured onboarding doc with inline highlights
+      const { data: formatted, error: formatError } = await supabase.functions.invoke('format-ocr-text', {
         body: { text: cleanedText }
       });
 
+      if (!formatError && formatted?.formattedText) {
+        setHighlightedText(formatted.formattedText);
+        return;
+      }
+
+      // Fallback: simple highlight if formatting fails
+      if (formatError) console.warn('format-ocr-text error, falling back to highlight-text:', formatError);
+      const { data: highlighted, error: highlightError } = await supabase.functions.invoke('highlight-text', {
+        body: { text: cleanedText }
+      });
       if (highlightError) throw highlightError;
       setHighlightedText(highlighted.highlightedText || cleanedText);
     } catch (error) {
-      console.error('Error in clean and highlight:', error);
+      console.error('Error in clean/format/highlight:', error);
       setHighlightedText(ocrText);
     } finally {
       setHighlighting(false);
@@ -150,8 +159,17 @@ const MaterialDetail = ({ documentId, onBack }: MaterialDetailProps) => {
       const cleanedText: string = cleaned?.cleanedText || rawText;
       if (cleanError) console.warn('clean-ocr-text error, using raw text:', cleanError);
 
-      // 4) Highlight important parts
-      await highlightImportantText(cleanedText);
+      // 4) Format into structured onboarding doc with inline highlights
+      const { data: formatted, error: formatError } = await supabase.functions.invoke('format-ocr-text', {
+        body: { text: cleanedText }
+      });
+
+      if (!formatError && formatted?.formattedText) {
+        setHighlightedText(formatted.formattedText);
+      } else {
+        if (formatError) console.warn('format-ocr-text error, falling back to highlight-text:', formatError);
+        await highlightImportantText(cleanedText);
+      }
     } catch (e) {
       console.error('PDF 텍스트 추출 실패:', e);
       setExtractionFailed(true);
