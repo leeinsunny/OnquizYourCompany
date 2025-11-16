@@ -19,6 +19,7 @@ import EmployeeMaterials from "./pages/employee/Materials";
 import EmployeeQuizzes from "./pages/employee/Quizzes";
 import EmployeeProfile from "./pages/employee/Profile";
 import QuizTake from "./pages/employee/QuizTake";
+import ManagerDashboard from "./pages/manager/Dashboard";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -79,6 +80,14 @@ const App = () => (
               element={
                 <ProtectedRoute allowedRoles={['super_admin', 'admin', 'manager']}>
                   <AdminProfile />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/manager/dashboard"
+              element={
+                <ProtectedRoute allowedRoles={['manager', 'super_admin', 'admin']}>
+                  <ManagerDashboard />
                 </ProtectedRoute>
               } 
             />
