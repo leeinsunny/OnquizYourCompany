@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ClipboardList, CheckCircle, Lock, Play } from "lucide-react";
+import { ClipboardList } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import EmployeeLayout from "@/components/employee/EmployeeLayout";
@@ -118,7 +118,11 @@ const EmployeeQuizzes = () => {
           <TabsContent value="assigned">
             <Card>
               <CardContent className="pt-6">
-                {assignedQuizzes.length === 0 ? (
+                {loading ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    로딩 중...
+                  </div>
+                ) : assignedQuizzes.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
                     <ClipboardList className="h-12 w-12 mx-auto mb-3 opacity-50" />
                     <p>할당된 퀴즈가 없습니다.</p>
@@ -143,9 +147,13 @@ const EmployeeQuizzes = () => {
                             <td className="py-3 text-right">{q.quiz_questions?.[0]?.count ?? 0}</td>
                             <td className="py-3 text-right">
                               {q.attempt ? (
-                                <span className="text-success">완료 ({q.attempt.percentage}%)</span>
+                                <Badge variant="default" className="text-xs">
+                                  완료 ({q.attempt.percentage}%)
+                                </Badge>
                               ) : (
-                                <span className="text-warning">미완료</span>
+                                <Badge variant="secondary" className="text-xs">
+                                  미완료
+                                </Badge>
                               )}
                             </td>
                             <td className="py-3 text-right">
@@ -168,203 +176,50 @@ const EmployeeQuizzes = () => {
           <TabsContent value="all">
             <Card>
               <CardContent className="pt-6">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b text-muted-foreground">
-                        <th className="text-left py-3">제목</th>
-                        <th className="text-left py-3">카테고리</th>
-                        <th className="text-right py-3">문항</th>
-                        <th className="text-right py-3">할당됨</th>
-                        <th className="text-right py-3">액션</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {allQuizzes.map((q) => (
-                        <tr key={q.id} className="border-b hover:bg-muted/50">
-                          <td className="py-3 font-medium text-foreground">{q.title}</td>
-                          <td className="py-3">{q.categories?.name || '-'}</td>
-                          <td className="py-3 text-right">{q.quiz_questions?.[0]?.count ?? 0}</td>
-                          <td className="py-3 text-right">{q.isAssigned ? '예' : '아니오'}</td>
-                          <td className="py-3 text-right">
-                            <Link to={`/employee/quiz/${q.id}`}>
-                              <Button size="sm" variant="secondary">
-                                {q.attempt ? '복습하기' : '시작하기'}
-                              </Button>
-                            </Link>
-                          </td>
+                {loading ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    로딩 중...
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b text-muted-foreground">
+                          <th className="text-left py-3">제목</th>
+                          <th className="text-left py-3">카테고리</th>
+                          <th className="text-right py-3">문항</th>
+                          <th className="text-right py-3">할당됨</th>
+                          <th className="text-right py-3">액션</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody>
+                        {allQuizzes.map((q) => (
+                          <tr key={q.id} className="border-b hover:bg-muted/50">
+                            <td className="py-3 font-medium text-foreground">{q.title}</td>
+                            <td className="py-3">{q.categories?.name || '-'}</td>
+                            <td className="py-3 text-right">{q.quiz_questions?.[0]?.count ?? 0}</td>
+                            <td className="py-3 text-right">
+                              {q.isAssigned ? (
+                                <Badge variant="default" className="text-xs">예</Badge>
+                              ) : (
+                                <Badge variant="outline" className="text-xs">아니오</Badge>
+                              )}
+                            </td>
+                            <td className="py-3 text-right">
+                              <Link to={`/employee/quiz/${q.id}`}>
+                                <Button size="sm" variant="secondary">
+                                  {q.attempt ? '복습하기' : '시작하기'}
+                                </Button>
+                              </Link>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </CardContent>
             </Card>
-          </TabsContent>
-        </Tabs>
-      </div>
-    </EmployeeLayout>
-  );
-            {loading ? (
-              <Card>
-                <CardContent className="py-12 text-center">
-                  <p className="text-sm text-muted-foreground">로딩 중...</p>
-                </CardContent>
-              </Card>
-            ) : assignedQuizzes.length === 0 ? (
-              <Card>
-                <CardContent className="py-12 text-center">
-                  <ClipboardList className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-                  <p className="text-sm text-muted-foreground">
-                    할당된 퀴즈가 없습니다
-                  </p>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="grid gap-4 md:grid-cols-2">
-                {incompleteAssignedQuizzes.length > 0 && (
-                  <div className="md:col-span-2">
-                    <h3 className="text-lg font-semibold mb-3">완료되지 않은 퀴즈</h3>
-                    <div className="grid gap-4 md:grid-cols-2">
-                      {incompleteAssignedQuizzes.map((quiz) => (
-                        <Card key={quiz.id} className="border-primary/50">
-                          <CardHeader>
-                            <div className="flex items-start justify-between">
-                              <div className="space-y-1">
-                                <CardTitle className="text-base">{quiz.title}</CardTitle>
-                                <CardDescription>
-                                  {quiz.categories?.name}
-                                </CardDescription>
-                              </div>
-                              <Badge variant="secondary">미완료</Badge>
-                            </div>
-                          </CardHeader>
-                          <CardContent className="space-y-4">
-                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                              <ClipboardList className="h-4 w-4" />
-                              <span>{quiz.quiz_questions[0]?.count || 0}문제</span>
-                            </div>
-                            <Link to={`/employee/quiz/${quiz.id}`}>
-                              <Button className="w-full gap-2">
-                                <Play className="h-4 w-4" />
-                                퀴즈 시작하기
-                              </Button>
-                            </Link>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {completedQuizzes.filter(q => q.isAssigned).length > 0 && (
-                  <div className="md:col-span-2">
-                    <h3 className="text-lg font-semibold mb-3">완료한 퀴즈</h3>
-                    <div className="grid gap-4 md:grid-cols-2">
-                      {completedQuizzes.filter(q => q.isAssigned).map((quiz) => (
-                        <Card key={quiz.id}>
-                          <CardHeader>
-                            <div className="flex items-start justify-between">
-                              <div className="space-y-1">
-                                <CardTitle className="text-base">{quiz.title}</CardTitle>
-                                <CardDescription>
-                                  {quiz.categories?.name}
-                                </CardDescription>
-                              </div>
-                              <Badge variant="default" className="gap-1">
-                                <CheckCircle className="h-3 w-3" />
-                                완료
-                              </Badge>
-                            </div>
-                          </CardHeader>
-                          <CardContent className="space-y-4">
-                            <div className="flex items-center justify-between text-sm">
-                              <span className="text-muted-foreground">점수</span>
-                              <span className="font-semibold text-lg">
-                                {quiz.attempt?.percentage || 0}점
-                              </span>
-                            </div>
-                            <div className="text-xs text-muted-foreground">
-                              완료일: {new Date(quiz.attempt?.completed_at || '').toLocaleDateString('ko-KR')}
-                            </div>
-                            <Link to={`/employee/quiz/${quiz.id}`}>
-                              <Button variant="outline" className="w-full">
-                                다시 풀기
-                              </Button>
-                            </Link>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </TabsContent>
-
-          <TabsContent value="all" className="space-y-4">
-            {loading ? (
-              <Card>
-                <CardContent className="py-12 text-center">
-                  <p className="text-sm text-muted-foreground">로딩 중...</p>
-                </CardContent>
-              </Card>
-            ) : quizzes.length === 0 ? (
-              <Card>
-                <CardContent className="py-12 text-center">
-                  <ClipboardList className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-                  <p className="text-sm text-muted-foreground">
-                    생성된 퀴즈가 없습니다
-                  </p>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {quizzes.map((quiz) => (
-                  <Card key={quiz.id}>
-                    <CardHeader>
-                      <div className="flex items-start justify-between">
-                        <div className="space-y-1 flex-1">
-                          <CardTitle className="text-base">{quiz.title}</CardTitle>
-                          <CardDescription>
-                            {quiz.categories?.name}
-                          </CardDescription>
-                        </div>
-                        {quiz.attempt ? (
-                          <Badge variant="default" className="gap-1">
-                            <CheckCircle className="h-3 w-3" />
-                            {quiz.attempt.percentage}점
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline">미완료</Badge>
-                        )}
-                      </div>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <ClipboardList className="h-4 w-4" />
-                        <span>{quiz.quiz_questions[0]?.count || 0}문제</span>
-                      </div>
-                      <Link to={`/employee/quiz/${quiz.id}`}>
-                        <Button 
-                          className="w-full gap-2"
-                          variant={quiz.attempt ? "outline" : "default"}
-                        >
-                          {quiz.attempt ? (
-                            <>다시 풀기</>
-                          ) : (
-                            <>
-                              <Play className="h-4 w-4" />
-                              시작하기
-                            </>
-                          )}
-                        </Button>
-                      </Link>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
           </TabsContent>
         </Tabs>
       </div>
