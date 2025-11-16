@@ -46,9 +46,9 @@ const MaterialDetail = ({ documentId, onBack }: MaterialDetailProps) => {
       if (error) throw error;
       setDocument(data);
 
-      // If OCR text exists, highlight it; otherwise attempt on-demand extraction from PDF
+      // If OCR text exists, clean then highlight it
       if (data.ocr_text && data.ocr_text.trim().length > 0) {
-        await highlightImportantText(data.ocr_text);
+        await cleanAndHighlightText(data.ocr_text);
       } else {
         await extractFromPdfAndProcess(data);
       }
@@ -57,6 +57,34 @@ const MaterialDetail = ({ documentId, onBack }: MaterialDetailProps) => {
       toast.error("문서를 불러오는 중 오류가 발생했습니다");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const cleanAndHighlightText = async (ocrText: string) => {
+    try {
+      setHighlighting(true);
+      console.log('Starting clean and highlight for saved OCR text');
+      
+      // Step 1: Clean the text for better readability
+      const { data: cleaned, error: cleanError } = await supabase.functions.invoke('clean-ocr-text', {
+        body: { text: ocrText }
+      });
+      
+      const cleanedText = cleaned?.cleanedText || ocrText;
+      if (cleanError) console.warn('clean-ocr-text error:', cleanError);
+
+      // Step 2: Highlight important parts
+      const { data: highlighted, error: highlightError } = await supabase.functions.invoke('highlight-text', {
+        body: { text: cleanedText }
+      });
+
+      if (highlightError) throw highlightError;
+      setHighlightedText(highlighted.highlightedText || cleanedText);
+    } catch (error) {
+      console.error('Error in clean and highlight:', error);
+      setHighlightedText(ocrText);
+    } finally {
+      setHighlighting(false);
     }
   };
 
