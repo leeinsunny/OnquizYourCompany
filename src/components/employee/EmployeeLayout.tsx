@@ -1,4 +1,5 @@
 import { ReactNode } from "react";
+import { Link } from "react-router-dom";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import EmployeeSidebar from "@/components/employee/EmployeeSidebar";
 import { Button } from "@/components/ui/button";
@@ -23,9 +24,10 @@ const EmployeeLayout = ({ children }: EmployeeLayoutProps) => {
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container flex h-16 items-center justify-between">
           <div className="flex items-center gap-3">
-            {/* Sidebar trigger is rendered inside Provider below; keep space for logo */}
-            <div className="h-8 w-8 rounded-lg bg-gradient-hero" />
-            <span className="text-xl font-bold">OnQuiz</span>
+            <Link to="/employee/dashboard" className="flex items-center gap-3">
+              <div className="h-8 w-8 rounded-lg bg-gradient-hero" />
+              <span className="text-xl font-bold">OnQuiz</span>
+            </Link>
           </div>
           <div className="flex items-center gap-4">
             <span className="text-sm text-muted-foreground hidden sm:inline">
