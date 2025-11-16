@@ -5,37 +5,22 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
 import {
-  BookOpen,
-  ClipboardList,
-  Trophy,
-  Play,
+  PlayCircle,
   CheckCircle2,
-  Loader2
+  Clock,
+  TrendingUp
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import EmployeeLayout from "@/components/employee/EmployeeLayout";
 
-interface QuizAssignment {
+interface QuizItem {
   id: string;
-  quiz_id: string;
-  due_date: string | null;
-  quiz: {
-    id: string;
-    title: string;
-    category: {
-      name: string;
-    };
-  };
-  attempts: Array<{
-    id: string;
-    status: string;
-    score: number | null;
-    percentage: number | null;
-    time_spent: number | null;
-  }>;
-  questions_count: number;
+  title: string;
+  status: 'not_started' | 'in_progress' | 'completed';
+  score: number | null;
+  estimatedTime: string;
 }
 
 const EmployeeDashboard = () => {
@@ -43,15 +28,11 @@ const EmployeeDashboard = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
-  const [profile, setProfile] = useState<any>(null);
-  const [assignments, setAssignments] = useState<QuizAssignment[]>([]);
-  const [stats, setStats] = useState({
-    totalQuizzes: 0,
-    completedQuizzes: 0,
-    averageScore: 0,
-    totalCategories: 0,
-    completedCategories: 0
-  });
+  const [overallProgress, setOverallProgress] = useState(0);
+  const [nextQuiz, setNextQuiz] = useState<QuizItem | null>(null);
+  const [quizzes, setQuizzes] = useState<QuizItem[]>([]);
+  const [recentCompleted, setRecentCompleted] = useState<any[]>([]);
+  const [feedback, setFeedback] = useState<string>("");
 
   useEffect(() => {
     if (user) {
@@ -63,93 +44,75 @@ const EmployeeDashboard = () => {
     try {
       setLoading(true);
 
-      // Fetch user profile
-      const { data: profileData } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user!.id)
-        .single();
-
-      setProfile(profileData);
-
-      // Fetch quiz assignments with related data
-      const { data: assignmentsData, error: assignmentsError } = await supabase
+      const { data: assignments } = await supabase
         .from('quiz_assignments')
         .select(`
-          id,
           quiz_id,
-          due_date,
-          quiz:quizzes!inner (
-            id,
-            title,
-            category:categories (
-              name
-            )
-          )
+          quiz:quizzes!inner(id, title)
         `)
-        .eq('user_id', user!.id)
-        .order('assigned_at', { ascending: false });
+        .eq('user_id', user!.id);
 
-      if (assignmentsError) throw assignmentsError;
-
-      // Fetch attempts for each quiz
-      const enrichedAssignments = await Promise.all(
-        (assignmentsData || []).map(async (assignment: any) => {
-          // Count questions for this quiz
-          const { count: questionsCount } = await supabase
-            .from('quiz_questions')
-            .select('*', { count: 'exact', head: true })
-            .eq('quiz_id', assignment.quiz_id);
-
-          // Get latest attempt
+      const enrichedQuizzes = await Promise.all(
+        (assignments || []).map(async (assignment: any) => {
           const { data: attempts } = await supabase
             .from('quiz_attempts')
-            .select('*')
+            .select('status, score, percentage')
             .eq('quiz_id', assignment.quiz_id)
             .eq('user_id', user!.id)
             .order('started_at', { ascending: false });
 
+          const latestAttempt = attempts?.[0];
+          let status: QuizItem['status'] = 'not_started';
+          if (latestAttempt) {
+            status = latestAttempt.status === 'completed' ? 'completed' : 'in_progress';
+          }
+
+          const { count } = await supabase
+            .from('quiz_questions')
+            .select('*', { count: 'exact', head: true })
+            .eq('quiz_id', assignment.quiz_id);
+
+          const estimatedTime = `${Math.max(10, (count || 0) * 2)}분`;
+
           return {
-            ...assignment,
-            attempts: attempts || [],
-            questions_count: questionsCount || 0
+            id: assignment.quiz_id,
+            title: assignment.quiz.title,
+            status,
+            score: latestAttempt?.score || null,
+            estimatedTime
           };
         })
       );
 
-      setAssignments(enrichedAssignments);
+      setQuizzes(enrichedQuizzes);
 
-      // Calculate statistics
-      const completedAttempts = enrichedAssignments.filter(
-        a => a.attempts.length > 0 && a.attempts[0].status === 'completed'
-      );
+      const completedCount = enrichedQuizzes.filter(q => q.status === 'completed').length;
+      const totalCount = enrichedQuizzes.length || 1;
+      const progress = Math.round((completedCount / totalCount) * 100);
+      setOverallProgress(progress);
 
-      const totalScore = completedAttempts.reduce(
-        (sum, a) => sum + (a.attempts[0].percentage || 0),
-        0
-      );
+      const notStarted = enrichedQuizzes.find(q => q.status === 'not_started');
+      const inProgress = enrichedQuizzes.find(q => q.status === 'in_progress');
+      setNextQuiz(inProgress || notStarted || null);
 
-      const uniqueCategories = new Set(
-        enrichedAssignments.map(a => a.quiz.category?.name).filter(Boolean)
-      );
+      const completed = enrichedQuizzes.filter(q => q.status === 'completed').slice(0, 3);
+      setRecentCompleted(completed);
 
-      const completedCategories = new Set(
-        completedAttempts.map(a => a.quiz.category?.name).filter(Boolean)
-      );
-
-      setStats({
-        totalQuizzes: enrichedAssignments.length,
-        completedQuizzes: completedAttempts.length,
-        averageScore: completedAttempts.length > 0 ? Math.round(totalScore / completedAttempts.length) : 0,
-        totalCategories: uniqueCategories.size,
-        completedCategories: completedCategories.size
-      });
-
+      if (completedCount > 0) {
+        const avgScore = completed.reduce((sum, q) => sum + (q.score || 0), 0) / completedCount;
+        if (avgScore < 75) {
+          setFeedback("복습을 권장합니다. 어려운 부분은 팀장님께 문의해 보세요.");
+        } else if (avgScore >= 90) {
+          setFeedback("훌륭합니다! 계속해서 좋은 성과를 유지하고 있습니다.");
+        } else {
+          setFeedback("잘하고 있습니다! 조금만 더 노력하면 더 좋은 결과를 얻을 수 있어요.");
+        }
+      }
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
       toast({
         title: "오류",
-        description: "대시보드 데이터를 불러오는데 실패했습니다.",
+        description: "데이터를 불러오는 중 문제가 발생했습니다.",
         variant: "destructive"
       });
     } finally {
@@ -157,78 +120,37 @@ const EmployeeDashboard = () => {
     }
   };
 
-  const handleStartQuiz = (assignment: QuizAssignment) => {
-    const latestAttempt = assignment.attempts[0];
-    
-    if (latestAttempt?.status === 'in_progress') {
-      // Continue existing attempt
-      navigate(`/employee/quiz/${assignment.quiz_id}?attempt=${latestAttempt.id}`);
-    } else {
-      // Start new attempt
-      navigate(`/employee/quiz/${assignment.quiz_id}`);
+  const handleStartQuiz = (quizId: string) => {
+    navigate(`/employee/quiz-take/${quizId}`);
+  };
+
+  const getStatusIcon = (status: QuizItem['status']) => {
+    switch (status) {
+      case 'completed':
+        return <CheckCircle2 className="h-5 w-5 text-green-600" />;
+      case 'in_progress':
+        return <PlayCircle className="h-5 w-5 text-blue-600" />;
+      default:
+        return <Clock className="h-5 w-5 text-gray-400" />;
     }
   };
 
-  const getQuizStatus = (assignment: QuizAssignment) => {
-    const latestAttempt = assignment.attempts[0];
-    
-    if (!latestAttempt) {
-      return { status: 'not_started', label: '시작하기', variant: 'default' as const };
+  const getStatusText = (status: QuizItem['status']) => {
+    switch (status) {
+      case 'completed':
+        return '완료';
+      case 'in_progress':
+        return '진행 중';
+      default:
+        return '시작 전';
     }
-    
-    if (latestAttempt.status === 'in_progress') {
-      return { status: 'in_progress', label: '계속하기', variant: 'secondary' as const };
-    }
-    
-    if (latestAttempt.status === 'completed') {
-      const percentage = latestAttempt.percentage || 0;
-      return {
-        status: 'completed',
-        label: `완료 (${percentage}%)`,
-        variant: 'outline' as const,
-        score: percentage
-      };
-    }
-    
-    return { status: 'not_started', label: '시작하기', variant: 'default' as const };
   };
-
-  // Check achievements
-  const hasCompletedFirstQuiz = assignments.some(a => a.attempts.length > 0);
-  const hasPerfectScore = assignments.some(a => 
-    a.attempts.some(attempt => attempt.percentage === 100)
-  );
-  const hasCompletedAll = stats.totalQuizzes > 0 && stats.completedQuizzes === stats.totalQuizzes;
-
-  // Check for 3-day streak
-  const attemptDates = assignments
-    .flatMap(a => a.attempts)
-    .map(attempt => new Date(attempt.id).toDateString());
-  const uniqueDates = new Set(attemptDates);
-  const has3DayStreak = uniqueDates.size >= 3;
-
-  const achievements = [
-    { name: "첫 퀴즈 완료", icon: "🎯", earned: hasCompletedFirstQuiz },
-    { name: "연속 3일 학습", icon: "🔥", earned: has3DayStreak },
-    { name: "만점 달성", icon: "⭐", earned: hasPerfectScore },
-    { name: "전체 완료", icon: "🏆", earned: hasCompletedAll }
-  ];
-
-  // Find next recommended quiz
-  const nextQuiz = assignments.find(a => {
-    const status = getQuizStatus(a);
-    return status.status !== 'completed';
-  });
-
-  const completionRate = stats.totalQuizzes > 0 
-    ? (stats.completedQuizzes / stats.totalQuizzes) * 100 
-    : 0;
 
   if (loading) {
     return (
       <EmployeeLayout>
         <div className="flex items-center justify-center h-64">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-muted-foreground">로딩 중...</p>
         </div>
       </EmployeeLayout>
     );
@@ -236,186 +158,168 @@ const EmployeeDashboard = () => {
 
   return (
     <EmployeeLayout>
-      {/* Welcome Section */}
-      <div className="mb-8 rounded-lg bg-gradient-hero p-8 text-white">
-        <h1 className="mb-2 text-3xl font-bold">
-          환영합니다, {profile?.name || '사용자'}님! 👋
-        </h1>
-        <p className="text-lg opacity-90">
-          첫 출근을 환영합니다. 온보딩 학습을 시작해보세요!
-        </p>
-      </div>
-
-      {/* Progress Overview */}
-      <div className="mb-8 grid gap-4 md:grid-cols-4">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">할당된 퀴즈</p>
-                <p className="mt-1 text-2xl font-bold">
-                  {stats.completedQuizzes}/{stats.totalQuizzes}
-                </p>
-              </div>
-              <ClipboardList className="h-8 w-8 text-primary" />
-            </div>
-            <Progress value={completionRate} className="mt-3" />
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">평균 점수</p>
-                <p className="mt-1 text-2xl font-bold">{stats.averageScore}점</p>
-              </div>
-              <Trophy className="h-8 w-8 text-warning" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">완료한 카테고리</p>
-                <p className="mt-1 text-2xl font-bold">
-                  {stats.completedCategories}/{stats.totalCategories}
-                </p>
-              </div>
-              <BookOpen className="h-8 w-8 text-success" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">진행률</p>
-                <p className="mt-1 text-2xl font-bold">
-                  {Math.round(completionRate)}%
-                </p>
-              </div>
-              <CheckCircle2 className="h-8 w-8 text-primary" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
       <div className="grid gap-6 lg:grid-cols-3">
-        {/* Assigned Quizzes */}
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>할당된 퀴즈</CardTitle>
-            <CardDescription>나에게 할당된 온보딩 퀴즈 목록</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {assignments.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <ClipboardList className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                <p>할당된 퀴즈가 없습니다.</p>
-              </div>
-            ) : (
-              assignments.map((assignment) => {
-                const quizStatus = getQuizStatus(assignment);
-                return (
-                  <div
-                    key={assignment.id}
-                    className="flex items-center justify-between rounded-lg border p-4 transition-colors hover:bg-muted/50"
-                  >
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h4 className="font-semibold">{assignment.quiz.title}</h4>
-                        {quizStatus.status === 'completed' && (
-                          <CheckCircle2 className="h-4 w-4 text-success" />
-                        )}
-                      </div>
-                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                        <span>{assignment.quiz.category?.name}</span>
-                        <span>•</span>
-                        <span>{assignment.questions_count}문제</span>
-                        {quizStatus.score !== undefined && (
-                          <>
-                            <span>•</span>
-                            <span className="font-medium text-foreground">
-                              {quizStatus.score}점
-                            </span>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                    <Button
-                      variant={quizStatus.variant}
-                      size="sm"
-                      onClick={() => handleStartQuiz(assignment)}
-                    >
-                      {quizStatus.label}
-                    </Button>
-                  </div>
-                );
-              })
-            )}
-          </CardContent>
-        </Card>
-
-        <div className="space-y-6">
-          {/* Next Recommended */}
-          <Card>
+        <div className="space-y-6 lg:col-span-2">
+          <Card className="border-primary/20">
             <CardHeader>
-              <CardTitle>다음 추천 학습</CardTitle>
+              <CardTitle>내 온보딩 진행률</CardTitle>
+              <CardDescription>
+                전체 {quizzes.length}개 중 {quizzes.filter(q => q.status === 'completed').length}개 완료
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              {nextQuiz ? (
+              <div className="flex items-center gap-6">
+                <div className="relative w-32 h-32">
+                  <svg className="w-full h-full -rotate-90">
+                    <circle
+                      cx="64"
+                      cy="64"
+                      r="60"
+                      stroke="currentColor"
+                      strokeWidth="8"
+                      fill="none"
+                      className="text-muted"
+                    />
+                    <circle
+                      cx="64"
+                      cy="64"
+                      r="60"
+                      stroke="currentColor"
+                      strokeWidth="8"
+                      fill="none"
+                      strokeDasharray={`${2 * Math.PI * 60}`}
+                      strokeDashoffset={`${2 * Math.PI * 60 * (1 - overallProgress / 100)}`}
+                      className="text-primary"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <span className="text-3xl font-bold">{overallProgress}%</span>
+                  </div>
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm text-muted-foreground mb-2">
+                    {overallProgress >= 70 
+                      ? "거의 다 왔습니다! 마지막까지 화이팅!" 
+                      : "차근차근 진행해 나가고 있습니다."}
+                  </p>
+                  <Progress value={overallProgress} className="h-2" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {nextQuiz && (
+            <Card className="border-primary/40 bg-primary/5">
+              <CardHeader>
+                <CardTitle>지금 해야 할 일</CardTitle>
+                <CardDescription>다음 단계</CardDescription>
+              </CardHeader>
+              <CardContent>
                 <div className="space-y-4">
                   <div>
-                    <h4 className="font-semibold mb-1">{nextQuiz.quiz.title}</h4>
+                    <h3 className="text-xl font-semibold mb-2">{nextQuiz.title}</h3>
                     <p className="text-sm text-muted-foreground">
-                      {nextQuiz.quiz.category?.name}
+                      예상 소요 시간: {nextQuiz.estimatedTime}
                     </p>
                   </div>
-                  <Button
-                    className="w-full gap-2"
-                    onClick={() => handleStartQuiz(nextQuiz)}
+                  <Button 
+                    onClick={() => handleStartQuiz(nextQuiz.id)}
+                    size="lg"
+                    className="w-full"
                   >
-                    {getQuizStatus(nextQuiz).label}
+                    <PlayCircle className="mr-2 h-5 w-5" />
+                    {nextQuiz.status === 'in_progress' ? '계속하기' : '지금 시작하기'}
                   </Button>
+                  {nextQuiz.status === 'in_progress' && (
+                    <p className="text-xs text-center text-muted-foreground">
+                      진행 중인 퀴즈가 있습니다
+                    </p>
+                  )}
                 </div>
+              </CardContent>
+            </Card>
+          )}
+
+          <Card>
+            <CardHeader>
+              <CardTitle>내 학습 목록</CardTitle>
+              <CardDescription>할당된 퀴즈</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {quizzes.length === 0 ? (
+                <p className="text-sm text-muted-foreground">할당된 퀴즈가 없습니다</p>
               ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Trophy className="h-10 w-10 mx-auto mb-3 text-success" />
-                  <p className="font-semibold text-foreground">모든 퀴즈 완료!</p>
-                  <p className="text-sm mt-1">훌륭합니다! 🎉</p>
-                </div>
+                quizzes.map((quiz) => (
+                  <div 
+                    key={quiz.id}
+                    className="flex items-center justify-between p-4 rounded-lg bg-muted/50 hover:bg-muted/80 transition-colors cursor-pointer"
+                    onClick={() => quiz.status !== 'completed' && handleStartQuiz(quiz.id)}
+                  >
+                    <div className="flex items-center gap-3 flex-1">
+                      {getStatusIcon(quiz.status)}
+                      <div>
+                        <p className="font-medium">{quiz.title}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {getStatusText(quiz.status)} 
+                          {quiz.status !== 'completed' && ` • ${quiz.estimatedTime}`}
+                          {quiz.status === 'completed' && quiz.score !== null && ` • ${quiz.score}점`}
+                        </p>
+                      </div>
+                    </div>
+                    {quiz.status !== 'completed' && (
+                      <Button variant="ghost" size="sm">시작</Button>
+                    )}
+                  </div>
+                ))
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>최근 학습 결과</CardTitle>
+              <CardDescription>최근 완료한 퀴즈</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {recentCompleted.length === 0 ? (
+                <p className="text-sm text-muted-foreground">완료한 퀴즈가 없습니다</p>
+              ) : (
+                recentCompleted.map((quiz) => (
+                  <div key={quiz.id} className="space-y-1">
+                    <p className="font-medium text-sm">{quiz.title}</p>
+                    <div className="flex items-center gap-2">
+                      <Badge variant={quiz.score >= 80 ? "default" : "secondary"}>
+                        {quiz.score}점
+                      </Badge>
+                      <span className="text-xs text-muted-foreground">
+                        {quiz.score >= 90 ? "잘 이해하셨어요!" : quiz.score >= 70 ? "훌륭합니다" : "복습을 권장합니다"}
+                      </span>
+                    </div>
+                  </div>
+                ))
               )}
             </CardContent>
           </Card>
 
-          {/* Achievements */}
-          <Card>
-            <CardHeader>
-              <CardTitle>획득한 배지</CardTitle>
-              <CardDescription>학습 성취도</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 gap-3">
-                {achievements.map((achievement, index) => (
-                  <div
-                    key={index}
-                    className={`rounded-lg border p-3 text-center transition-all ${
-                      achievement.earned
-                        ? "border-primary bg-primary/5"
-                        : "border-dashed opacity-50"
-                    }`}
-                  >
-                    <div className="mb-1 text-3xl">{achievement.icon}</div>
-                    <p className="text-xs font-medium">{achievement.name}</p>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+          {feedback && (
+            <Card className="border-orange-200 bg-orange-50 dark:bg-orange-950/20">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <TrendingUp className="h-5 w-5" />
+                  학습 가이드
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm">{feedback}</p>
+                <p className="text-xs text-muted-foreground mt-2">
+                  궁금한 점이 있으면 팀장님께 문의해 주세요.
+                </p>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
     </EmployeeLayout>
