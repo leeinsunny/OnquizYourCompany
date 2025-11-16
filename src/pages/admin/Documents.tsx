@@ -348,7 +348,6 @@ const AdminDocuments = () => {
       setGeneratingQuiz(null);
     }
   };
-  };
 
   const handleQuizComplete = () => {
     fetchDocuments();
