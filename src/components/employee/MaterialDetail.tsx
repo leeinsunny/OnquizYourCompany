@@ -4,6 +4,11 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, Download, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import * as pdfjsLib from 'pdfjs-dist';
+// Use bundled worker like admin page for reliability
+import workerSrc from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = workerSrc;
 
 interface MaterialDetailProps {
   documentId: string;
@@ -83,19 +88,16 @@ const MaterialDetail = ({ documentId, onBack }: MaterialDetailProps) => {
 
       const arrayBuffer = await fileData.arrayBuffer();
 
-      // 2) Extract raw text with pdfjs-dist (ESM build)
-      const pdfjs: any = await import('pdfjs-dist/build/pdf.mjs');
-      // Use official worker hosted via unpkg to avoid bundler worker issues
-      // @ts-ignore
-      pdfjs.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@5.4.394/build/pdf.worker.mjs';
-
-      const loadingTask = pdfjs.getDocument({ data: arrayBuffer });
+      // 2) Extract raw text with pdfjs (same approach as admin)
+      const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
       const pdf = await loadingTask.promise;
       let fullText = '';
       for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i);
         const textContent = await page.getTextContent();
-        const pageText = textContent.items.map((it: any) => (it.str ? it.str : '')).join(' ');
+        const pageText = (textContent.items as any[])
+          .map((it: any) => (it.str ? it.str : ''))
+          .join(' ');
         fullText += pageText + '\n\n';
       }
 
