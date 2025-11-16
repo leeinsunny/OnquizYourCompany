@@ -14,7 +14,7 @@ import { useUserRole } from "@/hooks/useUserRole";
 const Signup = () => {
   const navigate = useNavigate();
   const { signUp, user } = useAuth();
-  const { isAdmin, loading: roleLoading } = useUserRole();
+  const { isAdmin, isManager, loading: roleLoading } = useUserRole();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     email: "",
@@ -29,13 +29,13 @@ const Signup = () => {
 
   useEffect(() => {
     if (user && !roleLoading) {
-      if (isAdmin) {
+      if (isAdmin || isManager) {
         navigate("/admin/dashboard");
       } else {
         navigate("/employee/dashboard");
       }
     }
-  }, [user, isAdmin, roleLoading, navigate]);
+  }, [user, isAdmin, isManager, roleLoading, navigate]);
 
   const departments = [
     "개발팀",

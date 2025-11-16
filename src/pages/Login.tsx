@@ -13,7 +13,7 @@ import { useUserRole } from "@/hooks/useUserRole";
 const Login = () => {
   const navigate = useNavigate();
   const { signIn, user } = useAuth();
-  const { isAdmin, loading: roleLoading } = useUserRole();
+  const { isAdmin, isManager, loading: roleLoading } = useUserRole();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
@@ -21,13 +21,13 @@ const Login = () => {
 
   useEffect(() => {
     if (user && !roleLoading) {
-      if (isAdmin) {
+      if (isAdmin || isManager) {
         navigate("/admin/dashboard");
       } else {
         navigate("/employee/dashboard");
       }
     }
-  }, [user, isAdmin, roleLoading, navigate]);
+  }, [user, isAdmin, isManager, roleLoading, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
