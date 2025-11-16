@@ -17,7 +17,7 @@ const EmployeeLayout = ({ children }: EmployeeLayoutProps) => {
     { name: "홈", href: "/employee/dashboard", icon: Home },
     { name: "온보딩 자료", href: "/employee/materials", icon: BookOpen },
     { name: "퀴즈", href: "/employee/quizzes", icon: ClipboardList },
-    { name: "내 학습 현황", href: "/employee/profile", icon: User },
+    { name: "내 프로필", href: "/employee/profile", icon: User },
   ];
 
   const handleSignOut = async () => {

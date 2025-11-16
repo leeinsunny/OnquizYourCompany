@@ -133,6 +133,7 @@ export type Database = {
           file_type: string | null
           file_url: string
           id: string
+          ocr_text: string | null
           status: string | null
           title: string
           updated_at: string | null
@@ -145,6 +146,7 @@ export type Database = {
           file_type?: string | null
           file_url: string
           id?: string
+          ocr_text?: string | null
           status?: string | null
           title: string
           updated_at?: string | null
@@ -157,6 +159,7 @@ export type Database = {
           file_type?: string | null
           file_url?: string
           id?: string
+          ocr_text?: string | null
           status?: string | null
           title?: string
           updated_at?: string | null
