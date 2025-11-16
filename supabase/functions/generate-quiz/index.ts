@@ -38,7 +38,8 @@ serve(async (req) => {
             role: 'system',
             content: `당신은 기업 온보딩 자료를 분석하여 퀴즈를 생성하는 전문가입니다.
 주어진 텍스트를 분석하여 10-20개의 객관식 문제를 생성하세요.
-각 문제는 4개의 선택지를 가지며, 정답은 1개만 있어야 합니다.`
+각 문제는 4개의 선택지를 가지며, 정답은 1개만 있어야 합니다.
+각 선택지에는 왜 그것이 정답인지 또는 오답인지 설명하는 해설을 반드시 포함해주세요.`
           },
           {
             role: 'user',
@@ -65,16 +66,16 @@ serve(async (req) => {
                           type: 'object',
                           properties: {
                             text: { type: 'string' },
-                            is_correct: { type: 'boolean' }
+                            is_correct: { type: 'boolean' },
+                            explanation: { type: 'string', description: '이 선택지가 정답인지 오답인지 설명' }
                           },
-                          required: ['text', 'is_correct']
+                          required: ['text', 'is_correct', 'explanation']
                         },
                         minItems: 4,
                         maxItems: 4
-                      },
-                      explanation: { type: 'string' }
+                      }
                     },
-                    required: ['question_text', 'options', 'explanation']
+                    required: ['question_text', 'options']
                   }
                 }
               },

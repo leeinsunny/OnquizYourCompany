@@ -16,8 +16,8 @@ interface QuizQuestion {
   options: Array<{
     text: string;
     is_correct: boolean;
+    explanation?: string;
   }>;
-  explanation: string;
 }
 
 interface QuizGenerationModalProps {
@@ -195,7 +195,7 @@ export const QuizGenerationModal = ({
               question_id: questionData.id,
               option_text: option.text,
               is_correct: option.is_correct,
-              explanation: option.is_correct ? question.explanation : null,
+              explanation: option.explanation || null,
               order_index: optionIndex
             });
 
@@ -301,33 +301,34 @@ export const QuizGenerationModal = ({
                       </Button>
                     </div>
                   </CardHeader>
-                  <CardContent className="space-y-2">
+                  <CardContent className="space-y-3">
                     {question.options.map((option, optIndex) => (
-                      <div key={optIndex} className="flex items-center gap-2">
-                        <Button
-                          variant={option.is_correct ? "default" : "outline"}
-                          size="icon"
-                          className="h-8 w-8 shrink-0"
-                          onClick={() => handleEditOption(question.id, optIndex, 'is_correct', !option.is_correct)}
-                        >
-                          {option.is_correct ? <Check className="h-4 w-4" /> : <X className="h-4 w-4" />}
-                        </Button>
-                        <Input
-                          value={option.text}
-                          onChange={(e) => handleEditOption(question.id, optIndex, 'text', e.target.value)}
-                          className="flex-1"
+                      <div key={optIndex} className="space-y-2 p-3 border rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant={option.is_correct ? "default" : "outline"}
+                            size="icon"
+                            className="h-8 w-8 shrink-0"
+                            onClick={() => handleEditOption(question.id, optIndex, 'is_correct', !option.is_correct)}
+                          >
+                            {option.is_correct ? <Check className="h-4 w-4" /> : <X className="h-4 w-4" />}
+                          </Button>
+                          <Input
+                            value={option.text}
+                            onChange={(e) => handleEditOption(question.id, optIndex, 'text', e.target.value)}
+                            className="flex-1"
+                            placeholder={`선택지 ${String.fromCharCode(65 + optIndex)}`}
+                          />
+                        </div>
+                        <Textarea
+                          value={option.explanation || ''}
+                          onChange={(e) => handleEditOption(question.id, optIndex, 'explanation', e.target.value)}
+                          placeholder="이 선택지에 대한 해설을 입력하세요"
+                          className="text-sm"
+                          rows={2}
                         />
                       </div>
                     ))}
-                    <div className="mt-3">
-                      <Label className="text-sm">해설</Label>
-                      <Textarea
-                        value={question.explanation}
-                        onChange={(e) => handleEditQuestion(question.id, 'explanation', e.target.value)}
-                        rows={2}
-                        className="mt-1"
-                      />
-                    </div>
                   </CardContent>
                 </Card>
               ))}
