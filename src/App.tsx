@@ -13,7 +13,11 @@ import AdminDocuments from "./pages/admin/Documents";
 import AdminQuizzes from "./pages/admin/Quizzes";
 import AdminUsers from "./pages/admin/Users";
 import AdminSettings from "./pages/admin/Settings";
+import AdminProfile from "./pages/admin/Profile";
 import EmployeeDashboard from "./pages/employee/Dashboard";
+import EmployeeMaterials from "./pages/employee/Materials";
+import EmployeeQuizzes from "./pages/employee/Quizzes";
+import EmployeeProfile from "./pages/employee/Profile";
 import QuizTake from "./pages/employee/QuizTake";
 import NotFound from "./pages/NotFound";
 
@@ -71,10 +75,42 @@ const App = () => (
               } 
             />
             <Route 
+              path="/admin/profile" 
+              element={
+                <ProtectedRoute allowedRoles={['super_admin', 'admin', 'manager']}>
+                  <AdminProfile />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
               path="/employee/dashboard"
               element={
                 <ProtectedRoute allowedRoles={['member']}>
                   <EmployeeDashboard />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/employee/materials"
+              element={
+                <ProtectedRoute allowedRoles={['member']}>
+                  <EmployeeMaterials />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/employee/quizzes"
+              element={
+                <ProtectedRoute allowedRoles={['member']}>
+                  <EmployeeQuizzes />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/employee/profile"
+              element={
+                <ProtectedRoute allowedRoles={['member']}>
+                  <EmployeeProfile />
                 </ProtectedRoute>
               } 
             />
