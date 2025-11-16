@@ -12,11 +12,13 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { QuizDetailDialog } from "@/components/admin/QuizDetailDialog";
+import { filterAssignableMembers, canAssign, ASSIGNMENT_ERROR_MESSAGES } from "@/lib/positionHierarchy";
 
 const AdminQuizzes = () => {
   const { user } = useAuth();
   const [quizzes, setQuizzes] = useState([]);
   const [users, setUsers] = useState([]);
+  const [currentUserJobTitle, setCurrentUserJobTitle] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const [selectedQuiz, setSelectedQuiz] = useState<any>(null);
@@ -77,21 +79,32 @@ const AdminQuizzes = () => {
   const fetchUsers = async () => {
     const { data: profile } = await supabase
       .from('profiles')
-      .select('company_id')
+      .select('company_id, job_title')
       .eq('id', user?.id)
       .single();
 
     if (!profile) return;
 
+    // 현재 사용자의 직급 저장
+    setCurrentUserJobTitle(profile.job_title);
+
+    // 할당 권한 확인
+    if (!canAssign(profile.job_title)) {
+      console.log('Current user does not have assign authority');
+      return;
+    }
+
     const { data } = await supabase
       .from('profiles')
-      .select('id, name, email, department_id')
+      .select('id, name, email, department_id, job_title')
       .eq('company_id', profile.company_id)
       .neq('id', user?.id); // Exclude current user
 
     if (data) {
-      console.log('Fetched users for assignment:', data);
-      setUsers(data);
+      // 현재 사용자의 직급보다 낮은 직급만 필터링
+      const assignableUsers = filterAssignableMembers(profile.job_title, data);
+      console.log('Filtered assignable users:', assignableUsers);
+      setUsers(assignableUsers);
     }
   };
 
@@ -276,28 +289,46 @@ const AdminQuizzes = () => {
                         <DialogHeader>
                           <DialogTitle>퀴즈 할당</DialogTitle>
                           <DialogDescription>
-                            이 퀴즈를 풀 사원을 선택하세요
+                            할당 가능한 멤버만 표시됩니다
                           </DialogDescription>
                         </DialogHeader>
                         <div className="max-h-[400px] overflow-y-auto space-y-2">
-                          {users.map((u: any) => (
-                            <div key={u.id} className="flex items-center space-x-2 p-2 hover:bg-muted rounded">
-                              <Checkbox
-                                checked={selectedUsers.includes(u.id)}
-                                onCheckedChange={() => toggleUserSelection(u.id)}
-                              />
-                              <div className="flex-1">
-                                <p className="font-medium">{u.name}</p>
-                                <p className="text-sm text-muted-foreground">{u.email}</p>
-                              </div>
+                          {users.length === 0 ? (
+                            <div className="text-center py-8">
+                              <p className="text-sm text-muted-foreground">
+                                {canAssign(currentUserJobTitle) 
+                                  ? "할당 가능한 멤버가 없습니다"
+                                  : ASSIGNMENT_ERROR_MESSAGES.NO_ASSIGN_AUTHORITY
+                                }
+                              </p>
                             </div>
-                          ))}
+                          ) : (
+                            users.map((u: any) => (
+                              <div key={u.id} className="flex items-center space-x-2 p-2 hover:bg-muted rounded border border-transparent hover:border-border">
+                                <Checkbox
+                                  checked={selectedUsers.includes(u.id)}
+                                  onCheckedChange={() => toggleUserSelection(u.id)}
+                                />
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2">
+                                    <p className="font-medium">{u.name}</p>
+                                    {u.job_title && (
+                                      <Badge variant="outline" className="text-xs">
+                                        {u.job_title}
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  <p className="text-sm text-muted-foreground">{u.email}</p>
+                                </div>
+                              </div>
+                            ))
+                          )}
                         </div>
                         <div className="flex gap-2 justify-end">
                           <Button variant="outline" onClick={() => setAssignDialogOpen(false)}>
                             취소
                           </Button>
-                          <Button onClick={handleAssignQuiz}>
+                          <Button onClick={handleAssignQuiz} disabled={selectedUsers.length === 0}>
                             {selectedUsers.length}명에게 할당
                           </Button>
                         </div>

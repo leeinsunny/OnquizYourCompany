@@ -4,8 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { 
   Upload, 
   FileCheck, 
-  Users, 
-  Shield
+  Users
 } from "lucide-react";
 
 const Landing = () => {
@@ -67,18 +66,18 @@ const Landing = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
       {/* Header */}
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container flex h-16 items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-2xl font-bold">OnQuiz</span>
+            <span className="text-2xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">OnQuiz</span>
           </div>
           <div className="flex items-center gap-4">
             <Button variant="ghost" onClick={() => navigate("/login")}>
               로그인
             </Button>
-            <Button onClick={() => navigate("/login")}>
+            <Button onClick={() => navigate("/login")} className="shadow-lg hover:shadow-xl transition-shadow">
               시작하기
             </Button>
           </div>
@@ -86,15 +85,16 @@ const Landing = () => {
       </header>
 
       {/* Hero Section */}
-      <section className="container pt-24 pb-16 md:pt-32 md:pb-20">
+      <section className="container pt-24 pb-16 md:pt-32 md:pb-20 relative">
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-secondary/10 blur-3xl -z-10" />
         <div className="mx-auto flex max-w-3xl flex-col items-center gap-6 text-center">
-          <h1 className="text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl">
+          <h1 className="text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl bg-gradient-to-br from-foreground to-foreground/70 bg-clip-text">
             온보딩 자료로 퀴즈를 자동으로 만듭니다
           </h1>
           <p className="max-w-xl text-lg text-muted-foreground">
             기존 교육 자료만 있으면 됩니다. 퀴즈 생성부터 진행 추적까지 자동으로 처리합니다.
           </p>
-          <Button size="lg" onClick={() => navigate("/login")}>
+          <Button size="lg" onClick={() => navigate("/login")} className="shadow-lg hover:shadow-xl transition-all hover:scale-105">
             시작하기
           </Button>
         </div>
@@ -105,9 +105,9 @@ const Landing = () => {
         <div className="mx-auto max-w-5xl">
           <div className="grid gap-8 md:grid-cols-3">
             {coreValues.map((value, index) => (
-              <Card key={index} className="border-muted">
+              <Card key={index} className="border-muted shadow-card hover:shadow-hover transition-all hover:-translate-y-1">
                 <CardContent className="pt-6">
-                  <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
+                  <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-lg bg-gradient-to-br from-primary/20 to-primary/10">
                     <value.icon className="h-6 w-6 text-primary" />
                   </div>
                   <h3 className="mb-2 text-lg font-semibold">{value.title}</h3>
@@ -120,19 +120,21 @@ const Landing = () => {
       </section>
 
       {/* Key Features Section */}
-      <section className="container py-16 md:py-20 bg-muted/30">
+      <section className="container py-16 md:py-20 bg-gradient-to-b from-muted/30 to-background">
         <div className="mx-auto max-w-5xl">
           <div className="mb-12 text-center">
-            <h2 className="mb-3 text-3xl font-bold">
+            <h2 className="mb-3 text-3xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text">
               주요 기능
             </h2>
           </div>
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {features.map((feature, index) => (
-              <div key={index} className="space-y-2">
-                <h3 className="font-semibold">{feature.title}</h3>
-                <p className="text-sm text-muted-foreground">{feature.description}</p>
-              </div>
+              <Card key={index} className="shadow-card hover:shadow-hover transition-all hover:-translate-y-1 bg-gradient-card">
+                <CardContent className="pt-6">
+                  <h3 className="font-semibold mb-2">{feature.title}</h3>
+                  <p className="text-sm text-muted-foreground">{feature.description}</p>
+                </CardContent>
+              </Card>
             ))}
           </div>
         </div>
@@ -142,19 +144,21 @@ const Landing = () => {
       <section className="container py-16 md:py-20">
         <div className="mx-auto max-w-5xl">
           <div className="mb-12 text-center">
-            <h2 className="mb-3 text-3xl font-bold">
+            <h2 className="mb-3 text-3xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text">
               사용 방법
             </h2>
           </div>
           <div className="grid gap-8 md:grid-cols-3">
             {steps.map((step, index) => (
-              <div key={index} className="text-center">
-                <div className="mb-4 text-4xl font-bold text-primary/30">
-                  {step.number}
-                </div>
-                <h3 className="mb-2 text-lg font-semibold">{step.title}</h3>
-                <p className="text-sm text-muted-foreground">{step.description}</p>
-              </div>
+              <Card key={index} className="text-center shadow-card hover:shadow-hover transition-all hover:-translate-y-1">
+                <CardContent className="pt-6">
+                  <div className="mb-4 text-4xl font-bold bg-gradient-to-br from-primary to-secondary bg-clip-text text-transparent">
+                    {step.number}
+                  </div>
+                  <h3 className="mb-2 text-lg font-semibold">{step.title}</h3>
+                  <p className="text-sm text-muted-foreground">{step.description}</p>
+                </CardContent>
+              </Card>
             ))}
           </div>
         </div>
@@ -162,8 +166,9 @@ const Landing = () => {
 
       {/* Final CTA Section */}
       <section className="container py-16 md:py-20">
-        <Card className="bg-primary text-primary-foreground">
-          <CardContent className="flex flex-col items-center gap-6 py-12 text-center">
+        <Card className="bg-gradient-to-br from-primary via-primary to-secondary text-primary-foreground shadow-2xl border-0 overflow-hidden relative">
+          <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent" />
+          <CardContent className="flex flex-col items-center gap-6 py-12 text-center relative z-10">
             <h2 className="text-2xl font-bold md:text-3xl">
               온보딩을 자동화하세요
             </h2>
@@ -171,6 +176,7 @@ const Landing = () => {
               size="lg" 
               variant="secondary"
               onClick={() => navigate("/login")}
+              className="shadow-xl hover:shadow-2xl transition-all hover:scale-105"
             >
               시작하기
             </Button>
@@ -179,7 +185,7 @@ const Landing = () => {
       </section>
 
       {/* Footer */}
-      <footer className="border-t py-8">
+      <footer className="border-t py-8 bg-muted/30">
         <div className="container text-center text-sm text-muted-foreground">
           © 2025 OnQuiz. All rights reserved.
         </div>
