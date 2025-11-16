@@ -339,6 +339,7 @@ const AdminDocuments = () => {
         throw new Error("PDF에서 텍스트를 추출할 수 없습니다");
       }
 
+      console.log('Extracted text length:', text.length);
       setFlowProgress(20);
 
       // Clean OCR text
@@ -346,20 +347,34 @@ const AdminDocuments = () => {
         body: { text }
       });
 
-      if (cleanError) throw cleanError;
+      if (cleanError) {
+        console.error('Clean OCR error:', cleanError);
+        throw cleanError;
+      }
 
-      const cleanedText = cleanedData.cleanedText || text;
+      const cleanedText = cleanedData?.cleanedText || text;
+      console.log('Cleaned text length:', cleanedText.length);
+      
+      if (!cleanedText || cleanedText.trim().length === 0) {
+        throw new Error("텍스트 정리 후 내용이 비어있습니다");
+      }
+
       setExtractedText(cleanedText);
       
       setFlowProgress(30);
       setFlowStep('text-review');
-      setTextReviewOpen(true);
+      
+      // Ensure state is updated before opening dialog
+      setTimeout(() => {
+        setTextReviewOpen(true);
+      }, 100);
 
     } catch (error: any) {
       console.error('Quiz generation error:', error);
       toast.error(error.message || "텍스트 추출 중 오류가 발생했습니다");
       setFlowModalOpen(false);
       setGeneratingQuiz(null);
+      resetQuizState();
     }
   };
 
