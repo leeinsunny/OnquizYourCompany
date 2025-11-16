@@ -97,8 +97,7 @@ const EmployeeQuizzes = () => {
   };
 
   const assignedQuizzes = quizzes.filter(q => q.isAssigned);
-  const completedQuizzes = quizzes.filter(q => q.attempt);
-  const incompleteAssignedQuizzes = assignedQuizzes.filter(q => !q.attempt);
+  const allQuizzes = quizzes;
 
   return (
     <EmployeeLayout>
@@ -112,15 +111,100 @@ const EmployeeQuizzes = () => {
 
         <Tabs defaultValue="assigned" className="space-y-4">
           <TabsList>
-            <TabsTrigger value="assigned">
-              할당된 퀴즈 ({assignedQuizzes.length})
-            </TabsTrigger>
-            <TabsTrigger value="all">
-              전체 퀴즈 ({quizzes.length})
-            </TabsTrigger>
+            <TabsTrigger value="assigned">할당된 퀴즈 ({assignedQuizzes.length})</TabsTrigger>
+            <TabsTrigger value="all">전체 퀴즈 ({allQuizzes.length})</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="assigned" className="space-y-4">
+          <TabsContent value="assigned">
+            <Card>
+              <CardContent className="pt-6">
+                {assignedQuizzes.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <ClipboardList className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                    <p>할당된 퀴즈가 없습니다.</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b text-muted-foreground">
+                          <th className="text-left py-3">제목</th>
+                          <th className="text-left py-3">카테고리</th>
+                          <th className="text-right py-3">문항</th>
+                          <th className="text-right py-3">상태</th>
+                          <th className="text-right py-3">액션</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {assignedQuizzes.map((q) => (
+                          <tr key={q.id} className="border-b hover:bg-muted/50">
+                            <td className="py-3 font-medium text-foreground">{q.title}</td>
+                            <td className="py-3">{q.categories?.name || '-'}</td>
+                            <td className="py-3 text-right">{q.quiz_questions?.[0]?.count ?? 0}</td>
+                            <td className="py-3 text-right">
+                              {q.attempt ? (
+                                <span className="text-success">완료 ({q.attempt.percentage}%)</span>
+                              ) : (
+                                <span className="text-warning">미완료</span>
+                              )}
+                            </td>
+                            <td className="py-3 text-right">
+                              <Link to={`/employee/quiz/${q.id}`}>
+                                <Button size="sm" variant="secondary">
+                                  {q.attempt ? '복습하기' : '시작하기'}
+                                </Button>
+                              </Link>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="all">
+            <Card>
+              <CardContent className="pt-6">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b text-muted-foreground">
+                        <th className="text-left py-3">제목</th>
+                        <th className="text-left py-3">카테고리</th>
+                        <th className="text-right py-3">문항</th>
+                        <th className="text-right py-3">할당됨</th>
+                        <th className="text-right py-3">액션</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {allQuizzes.map((q) => (
+                        <tr key={q.id} className="border-b hover:bg-muted/50">
+                          <td className="py-3 font-medium text-foreground">{q.title}</td>
+                          <td className="py-3">{q.categories?.name || '-'}</td>
+                          <td className="py-3 text-right">{q.quiz_questions?.[0]?.count ?? 0}</td>
+                          <td className="py-3 text-right">{q.isAssigned ? '예' : '아니오'}</td>
+                          <td className="py-3 text-right">
+                            <Link to={`/employee/quiz/${q.id}`}>
+                              <Button size="sm" variant="secondary">
+                                {q.attempt ? '복습하기' : '시작하기'}
+                              </Button>
+                            </Link>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </div>
+    </EmployeeLayout>
+  );
             {loading ? (
               <Card>
                 <CardContent className="py-12 text-center">
