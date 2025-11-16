@@ -1,4 +1,4 @@
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+// Edge function: highlight important text in OCR content
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
