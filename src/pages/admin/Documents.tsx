@@ -227,9 +227,9 @@ const AdminDocuments = () => {
 
       if (dbError) throw dbError;
 
-      // Try to extract and save cleaned OCR immediately using the local file
+      // Extract, clean, and format OCR immediately for fast employee viewing
       try {
-        setUploadProgress(80);
+        setUploadProgress(70);
         const arrayBuffer = await selectedFile.arrayBuffer();
         const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
         let text = '';
@@ -241,12 +241,18 @@ const AdminDocuments = () => {
         }
 
         if (text.trim().length > 0) {
+          setUploadProgress(80);
           const { data: cleaned } = await supabase.functions.invoke('clean-ocr-text', { body: { text } });
           const cleanedText = cleaned?.cleanedText || text;
-          await supabase.from('documents').update({ ocr_text: cleanedText }).eq('id', inserted.id);
+          
+          setUploadProgress(90);
+          const { data: formatted } = await supabase.functions.invoke('format-ocr-text', { body: { text: cleanedText } });
+          const finalText = formatted?.formattedText || cleanedText;
+          
+          await supabase.from('documents').update({ ocr_text: finalText }).eq('id', inserted.id);
         }
       } catch (e) {
-        console.warn('OCR on upload failed (will still allow quiz gen later):', e);
+        console.warn('OCR processing on upload failed (will still allow quiz gen later):', e);
       }
 
       setUploadProgress(100);
