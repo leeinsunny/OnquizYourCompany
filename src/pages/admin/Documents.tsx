@@ -15,8 +15,10 @@ import { useNavigate } from "react-router-dom";
 import AdminLayout from "@/components/admin/AdminLayout";
 import * as pdfjsLib from 'pdfjs-dist';
 import workerSrc from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
-import { QuizGenerationModal } from "@/components/admin/QuizGenerationModal";
-import { QuizGenerationProgressModal } from "@/components/admin/QuizGenerationProgressModal";
+import { QuizGenerationFlowModal } from "@/components/admin/QuizGenerationFlowModal";
+import { TextReviewDialog } from "@/components/admin/TextReviewDialog";
+import { QuizReviewDialog } from "@/components/admin/QuizReviewDialog";
+import { QuizTitleDialog } from "@/components/admin/QuizTitleDialog";
 import { DeleteDocumentDialog } from "@/components/admin/DeleteDocumentDialog";
 
 // Configure PDF.js worker - local bundle
@@ -35,6 +37,16 @@ interface Document {
   quiz_count?: number;
 }
 
+interface QuizQuestion {
+  id: string;
+  question_text: string;
+  options: Array<{
+    text: string;
+    is_correct: boolean;
+  }>;
+  explanation: string;
+}
+
 const AdminDocuments = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -48,15 +60,26 @@ const AdminDocuments = () => {
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState<Document | null>(null);
   const [generatingQuiz, setGeneratingQuiz] = useState<string | null>(null);
-  const [quizModalOpen, setQuizModalOpen] = useState(false);
-  const [extractedText, setExtractedText] = useState("");
   const [currentDocForQuiz, setCurrentDocForQuiz] = useState<Document | null>(null);
   const [companyId, setCompanyId] = useState<string>("");
-  const [progressModalOpen, setProgressModalOpen] = useState(false);
-  const [generationStep, setGenerationStep] = useState<'cleaning' | 'generating' | 'complete'>('cleaning');
-  const [generationProgress, setGenerationProgress] = useState(0);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [documentToDelete, setDocumentToDelete] = useState<Document | null>(null);
+  
+  // Flow state
+  const [flowModalOpen, setFlowModalOpen] = useState(false);
+  const [flowStep, setFlowStep] = useState<'extracting' | 'text-review' | 'generating' | 'quiz-review' | 'title-input' | 'saving' | 'complete'>('extracting');
+  const [flowProgress, setFlowProgress] = useState(0);
+  
+  // Data state
+  const [extractedText, setExtractedText] = useState("");
+  const [generatedQuestions, setGeneratedQuestions] = useState<QuizQuestion[]>([]);
+  const [quizTitle, setQuizTitle] = useState("");
+  
+  // Dialog state
+  const [textReviewOpen, setTextReviewOpen] = useState(false);
+  const [quizReviewOpen, setQuizReviewOpen] = useState(false);
+  const [titleInputOpen, setTitleInputOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     fetchDocuments();
@@ -280,21 +303,22 @@ const AdminDocuments = () => {
     if (!user) return;
 
     setGeneratingQuiz(doc.id);
-    setProgressModalOpen(true);
-    setGenerationStep('cleaning');
-    setGenerationProgress(0);
+    setCurrentDocForQuiz(doc);
+    setFlowModalOpen(true);
+    setFlowStep('extracting');
+    setFlowProgress(0);
+    setQuizTitle(doc.title.replace('.pdf', '') + ' 퀴즈');
 
     try {
-      // Download the file from storage
+      // Step 1: Extract text from PDF
       const { data: fileData, error: downloadError } = await supabase.storage
         .from('documents')
         .download(doc.file_url);
 
       if (downloadError) throw downloadError;
 
-      setGenerationProgress(20);
+      setFlowProgress(10);
 
-      // Extract text from PDF
       let text = "";
       if (doc.file_type === 'application/pdf') {
         const file = new File([fileData], doc.title, { type: doc.file_type });
@@ -315,7 +339,7 @@ const AdminDocuments = () => {
         throw new Error("PDF에서 텍스트를 추출할 수 없습니다");
       }
 
-      setGenerationProgress(40);
+      setFlowProgress(20);
 
       // Clean OCR text
       const { data: cleanedData, error: cleanError } = await supabase.functions.invoke('clean-ocr-text', {
@@ -324,33 +348,186 @@ const AdminDocuments = () => {
 
       if (cleanError) throw cleanError;
 
-      setGenerationProgress(60);
-      setGenerationStep('generating');
-
       const cleanedText = cleanedData.cleanedText || text;
-      
       setExtractedText(cleanedText);
-      setCurrentDocForQuiz(doc);
       
-      setGenerationProgress(100);
-      setGenerationStep('complete');
-      
-      setTimeout(() => {
-        setProgressModalOpen(false);
-        setQuizModalOpen(true);
-      }, 1000);
+      setFlowProgress(30);
+      setFlowStep('text-review');
+      setTextReviewOpen(true);
 
     } catch (error: any) {
       console.error('Quiz generation error:', error);
-      toast.error(error.message || "퀴즈 생성 준비 중 오류가 발생했습니다");
-      setProgressModalOpen(false);
-    } finally {
+      toast.error(error.message || "텍스트 추출 중 오류가 발생했습니다");
+      setFlowModalOpen(false);
       setGeneratingQuiz(null);
     }
   };
 
-  const handleQuizComplete = () => {
-    fetchDocuments();
+  const handleTextReviewConfirm = async (editedText: string) => {
+    setTextReviewOpen(false);
+    setExtractedText(editedText);
+    setFlowStep('generating');
+    setFlowProgress(40);
+
+    try {
+      // Step 2: Generate quiz with AI
+      const { data, error } = await supabase.functions.invoke('generate-quiz', {
+        body: { text: editedText }
+      });
+
+      if (error) throw error;
+
+      const questionsWithIds = data.questions.map((q: any, index: number) => ({
+        ...q,
+        id: `question-${index}`
+      }));
+
+      setGeneratedQuestions(questionsWithIds);
+      setFlowProgress(60);
+      setFlowStep('quiz-review');
+      setQuizReviewOpen(true);
+
+    } catch (error: any) {
+      console.error('Quiz generation error:', error);
+      toast.error(error.message || "퀴즈 생성 중 오류가 발생했습니다");
+      setFlowModalOpen(false);
+      setGeneratingQuiz(null);
+    }
+  };
+
+  const handleQuizReviewConfirm = (editedQuestions: QuizQuestion[]) => {
+    setQuizReviewOpen(false);
+    setGeneratedQuestions(editedQuestions);
+    setFlowProgress(75);
+    setFlowStep('title-input');
+    setTitleInputOpen(true);
+  };
+
+  const handleTitleConfirm = async (title: string) => {
+    setQuizTitle(title);
+    setIsSaving(true);
+    setFlowStep('saving');
+    setFlowProgress(80);
+
+    try {
+      if (!currentDocForQuiz || !user) throw new Error("필수 정보가 없습니다");
+
+      // Create or get category
+      let categoryId = null;
+      const { data: existingCategory } = await supabase
+        .from('categories')
+        .select('id')
+        .eq('document_id', currentDocForQuiz.id)
+        .eq('company_id', companyId)
+        .maybeSingle();
+
+      if (existingCategory) {
+        categoryId = existingCategory.id;
+      } else {
+        const { data: newCategory, error: categoryError } = await supabase
+          .from('categories')
+          .insert({
+            name: title,
+            company_id: companyId,
+            document_id: currentDocForQuiz.id
+          })
+          .select()
+          .single();
+
+        if (categoryError) throw categoryError;
+        categoryId = newCategory.id;
+      }
+
+      setFlowProgress(85);
+
+      // Create quiz
+      const { data: quiz, error: quizError } = await supabase
+        .from('quizzes')
+        .insert({
+          title,
+          company_id: companyId,
+          category_id: categoryId,
+          created_by: user.id,
+          is_active: true
+        })
+        .select()
+        .single();
+
+      if (quizError) throw quizError;
+
+      setFlowProgress(90);
+
+      // Create questions and options
+      for (let i = 0; i < generatedQuestions.length; i++) {
+        const question = generatedQuestions[i];
+        
+        const { data: createdQuestion, error: questionError } = await supabase
+          .from('quiz_questions')
+          .insert({
+            quiz_id: quiz.id,
+            question_text: question.question_text,
+            order_index: i,
+            points: 1
+          })
+          .select()
+          .single();
+
+        if (questionError) throw questionError;
+
+        const optionsToInsert = question.options.map((opt, idx) => ({
+          question_id: createdQuestion.id,
+          option_text: opt.text,
+          is_correct: opt.is_correct,
+          order_index: idx
+        }));
+
+        const { error: optionsError } = await supabase
+          .from('quiz_options')
+          .insert(optionsToInsert);
+
+        if (optionsError) throw optionsError;
+      }
+
+      setFlowProgress(100);
+      setFlowStep('complete');
+      
+      toast.success("퀴즈가 성공적으로 생성되었습니다!");
+      
+      setTimeout(() => {
+        setTitleInputOpen(false);
+        setFlowModalOpen(false);
+        resetQuizState();
+        fetchDocuments();
+      }, 1500);
+
+    } catch (error: any) {
+      console.error('Quiz save error:', error);
+      toast.error(error.message || "퀴즈 저장 중 오류가 발생했습니다");
+      setFlowModalOpen(false);
+      resetQuizState();
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const resetQuizState = () => {
+    setGeneratingQuiz(null);
+    setCurrentDocForQuiz(null);
+    setExtractedText("");
+    setGeneratedQuestions([]);
+    setQuizTitle("");
+    setFlowProgress(0);
+    setTextReviewOpen(false);
+    setQuizReviewOpen(false);
+    setTitleInputOpen(false);
+  };
+
+  const handleCancelFlow = () => {
+    setTextReviewOpen(false);
+    setQuizReviewOpen(false);
+    setTitleInputOpen(false);
+    setFlowModalOpen(false);
+    resetQuizState();
   };
 
   const handleViewDocument = (doc: Document) => {
@@ -615,31 +792,35 @@ const AdminDocuments = () => {
           </Card>
         )}
 
-        {/* Quiz Generation Progress Modal */}
-        <QuizGenerationProgressModal
-          open={progressModalOpen}
-          currentStep={generationStep}
-          progress={generationProgress}
+        {/* Quiz Generation Flow - Background Modal */}
+        <QuizGenerationFlowModal
+          open={flowModalOpen}
+          currentStep={flowStep}
+          progress={flowProgress}
         />
 
-        {/* Quiz Generation Modal */}
-        {currentDocForQuiz && (
-          <QuizGenerationModal
-            open={quizModalOpen}
-            onClose={() => setQuizModalOpen(false)}
-            documentId={currentDocForQuiz.id}
-            documentTitle={currentDocForQuiz.title}
-            companyId={companyId}
-            userId={user?.id || ""}
-            extractedText={extractedText}
-            onComplete={() => {
-              setQuizModalOpen(false);
-              setCurrentDocForQuiz(null);
-              setExtractedText("");
-              fetchDocuments();
-            }}
-          />
-        )}
+        {/* Step Dialogs - Overlay on top of Flow Modal */}
+        <TextReviewDialog
+          open={textReviewOpen}
+          text={extractedText}
+          onConfirm={handleTextReviewConfirm}
+          onCancel={handleCancelFlow}
+        />
+
+        <QuizReviewDialog
+          open={quizReviewOpen}
+          questions={generatedQuestions}
+          onConfirm={handleQuizReviewConfirm}
+          onCancel={handleCancelFlow}
+        />
+
+        <QuizTitleDialog
+          open={titleInputOpen}
+          defaultTitle={quizTitle}
+          onConfirm={handleTitleConfirm}
+          onCancel={handleCancelFlow}
+          isLoading={isSaving}
+        />
 
         {/* Delete Confirmation Dialog */}
         <DeleteDocumentDialog
@@ -683,23 +864,6 @@ const AdminDocuments = () => {
             )}
           </DialogContent>
         </Dialog>
-
-        {currentDocForQuiz && user && companyId && (
-          <QuizGenerationModal
-            open={quizModalOpen}
-            onClose={() => {
-              setQuizModalOpen(false);
-              setCurrentDocForQuiz(null);
-              setExtractedText("");
-            }}
-            documentId={currentDocForQuiz.id}
-            documentTitle={currentDocForQuiz.title}
-            companyId={companyId}
-            userId={user.id}
-            extractedText={extractedText}
-            onComplete={handleQuizComplete}
-          />
-        )}
       </div>
     </AdminLayout>
   );
