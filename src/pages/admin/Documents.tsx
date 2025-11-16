@@ -211,7 +211,7 @@ const AdminDocuments = () => {
 
       setUploadProgress(60);
 
-      const { error: dbError } = await supabase
+      const { data: inserted, error: dbError } = await supabase
         .from('documents')
         .insert({
           company_id: profile.company_id,
@@ -221,9 +221,33 @@ const AdminDocuments = () => {
           file_size: selectedFile.size,
           uploaded_by: user.id,
           status: 'approved'
-        });
+        })
+        .select()
+        .single();
 
       if (dbError) throw dbError;
+
+      // Try to extract and save cleaned OCR immediately using the local file
+      try {
+        setUploadProgress(80);
+        const arrayBuffer = await selectedFile.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        let text = '';
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const content = await page.getTextContent();
+          const pageText = (content.items as any[]).map((it: any) => it.str ?? '').join(' ');
+          text += pageText + '\n\n';
+        }
+
+        if (text.trim().length > 0) {
+          const { data: cleaned } = await supabase.functions.invoke('clean-ocr-text', { body: { text } });
+          const cleanedText = cleaned?.cleanedText || text;
+          await supabase.from('documents').update({ ocr_text: cleanedText }).eq('id', inserted.id);
+        }
+      } catch (e) {
+        console.warn('OCR on upload failed (will still allow quiz gen later):', e);
+      }
 
       setUploadProgress(100);
       
