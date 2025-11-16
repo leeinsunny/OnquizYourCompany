@@ -19,7 +19,6 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 const items = [
-  { title: "대시보드", url: "/employee/dashboard", icon: Home },
   { title: "온보딩 자료", url: "/employee/materials", icon: BookOpen },
   { title: "퀴즈", url: "/employee/quizzes", icon: ClipboardList },
   { title: "내 프로필", url: "/employee/profile", icon: User },
