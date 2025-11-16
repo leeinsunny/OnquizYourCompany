@@ -17,6 +17,7 @@ const AdminProfile = () => {
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
+  const [isEditingJob, setIsEditingJob] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [departments, setDepartments] = useState<any[]>([]);
   const [formData, setFormData] = useState({
@@ -25,6 +26,10 @@ const AdminProfile = () => {
     job_title: '',
     department_id: ''
   });
+
+  const emailDomain = formData.email.includes('@') 
+    ? formData.email.split('@')[1] 
+    : (profile?.companies?.name || '-');
 
   useEffect(() => {
     fetchProfile();
@@ -58,10 +63,22 @@ const AdminProfile = () => {
   };
 
   const fetchDepartments = async () => {
+    if (!user) return;
+
     try {
+      // Get user's company_id first
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('company_id')
+        .eq('id', user.id)
+        .single();
+
+      if (!profileData?.company_id) return;
+
       const { data, error } = await supabase
         .from('departments')
         .select('*')
+        .eq('company_id', profileData.company_id)
         .order('name');
 
       if (error) throw error;
@@ -107,6 +124,7 @@ const AdminProfile = () => {
       department_id: profile?.department_id || ''
     });
     setIsEditing(false);
+    setIsEditingJob(false);
   };
 
   const getRoleLabel = (role: string) => {
@@ -174,22 +192,29 @@ const AdminProfile = () => {
               </div>
               <div className="space-y-2">
                 <Label>회사</Label>
-                <Input value={profile?.companies?.name || '-'} disabled />
+                <Input value={emailDomain} disabled />
               </div>
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader>
-              <CardTitle>직무 정보</CardTitle>
-              <CardDescription>
-                소속 및 권한 정보입니다
-              </CardDescription>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>직무 정보</CardTitle>
+                <CardDescription>
+                  소속 및 권한 정보입니다
+                </CardDescription>
+              </div>
+              {!isEditingJob && (
+                <Button variant="ghost" size="icon" onClick={() => setIsEditingJob(true)}>
+                  <Pencil className="h-4 w-4" />
+                </Button>
+              )}
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label>부서</Label>
-                {isEditing ? (
+                {isEditingJob ? (
                   <Select 
                     value={formData.department_id} 
                     onValueChange={(value) => setFormData({ ...formData, department_id: value })}
@@ -211,7 +236,7 @@ const AdminProfile = () => {
               </div>
               <div className="space-y-2">
                 <Label>직급</Label>
-                {isEditing ? (
+                {isEditingJob ? (
                   <Select
                     value={formData.job_title}
                     onValueChange={(value) => setFormData({ ...formData, job_title: value })}
@@ -243,7 +268,7 @@ const AdminProfile = () => {
           </Card>
         </div>
 
-        {isEditing && (
+        {(isEditing || isEditingJob) && (
           <Card>
             <CardContent className="pt-6">
               <div className="flex justify-end gap-2">
@@ -258,7 +283,7 @@ const AdminProfile = () => {
           </Card>
         )}
 
-        {!isEditing && (
+        {!(isEditing || isEditingJob) && (
           <Card>
             <CardHeader>
               <CardTitle>계정 관리</CardTitle>
