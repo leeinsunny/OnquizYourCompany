@@ -215,7 +215,7 @@ export const QuizDetailDialog = ({ open, onClose, quizId, quizTitle }: QuizDetai
           </div>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 min-h-0 pr-4">
+        <ScrollArea className="h-[65vh] pr-4">
           {loading ? (
             <div className="text-center py-12">
               <p className="text-muted-foreground">로딩 중...</p>
