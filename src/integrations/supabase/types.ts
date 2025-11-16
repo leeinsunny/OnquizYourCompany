@@ -519,6 +519,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_read_document_object: { Args: { _name: string }; Returns: boolean }
       get_user_company_id: { Args: { _user_id: string }; Returns: string }
       has_role: {
         Args: {
