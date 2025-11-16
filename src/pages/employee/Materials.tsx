@@ -1,122 +1,104 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { FileText, Search, Download, Eye } from "lucide-react";
+import { FileText, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import EmployeeLayout from "@/components/employee/EmployeeLayout";
+import MaterialDetail from "@/components/employee/MaterialDetail";
 import { toast } from "sonner";
-
-interface Category {
-  id: string;
-  name: string;
-  description: string | null;
-  document_count?: number;
-}
 
 interface Document {
   id: string;
   title: string;
-  file_url: string;
   file_type: string;
   file_size: number;
   created_at: string;
+  category_name: string;
+  quiz_title: string;
 }
 
 const EmployeeMaterials = () => {
   const { user } = useAuth();
-  const [categories, setCategories] = useState<Category[]>([]);
   const [documents, setDocuments] = useState<Document[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
+  const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchCategories();
+    fetchAssignedMaterials();
   }, []);
 
-  useEffect(() => {
-    if (selectedCategory) {
-      fetchDocuments(selectedCategory);
-    }
-  }, [selectedCategory]);
-
-  const fetchCategories = async () => {
+  const fetchAssignedMaterials = async () => {
     try {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('company_id')
-        .eq('id', user?.id)
-        .single();
+      setLoading(true);
 
-      if (!profile) return;
+      // Get user's assigned quizzes
+      const { data: assignments, error: assignmentsError } = await supabase
+        .from('quiz_assignments')
+        .select(`
+          quiz_id,
+          quiz:quizzes!inner (
+            id,
+            title,
+            category_id,
+            category:categories!inner (
+              id,
+              name,
+              document_id
+            )
+          )
+        `)
+        .eq('user_id', user?.id);
 
-      const { data, error } = await supabase
-        .from('categories')
-        .select('*')
-        .eq('company_id', profile.company_id)
-        .order('name');
+      if (assignmentsError) throw assignmentsError;
 
-      if (!error && data) {
-        setCategories(data);
-        if (data.length > 0 && !selectedCategory) {
-          setSelectedCategory(data[0].id);
+      // Extract unique document IDs from assigned quizzes
+      const documentIds = new Set<string>();
+      const quizDocMap = new Map<string, { quizTitle: string; categoryName: string }>();
+
+      assignments?.forEach((assignment: any) => {
+        const docId = assignment.quiz.category.document_id;
+        if (docId) {
+          documentIds.add(docId);
+          quizDocMap.set(docId, {
+            quizTitle: assignment.quiz.title,
+            categoryName: assignment.quiz.category.name
+          });
         }
-      }
-    } catch (error) {
-      console.error('Error fetching categories:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+      });
 
-  const fetchDocuments = async (categoryId: string) => {
-    try {
-      const { data, error } = await supabase
+      if (documentIds.size === 0) {
+        setDocuments([]);
+        setLoading(false);
+        return;
+      }
+
+      // Fetch documents
+      const { data: docs, error: docsError } = await supabase
         .from('documents')
         .select('*')
+        .in('id', Array.from(documentIds))
         .eq('status', 'approved')
         .order('created_at', { ascending: false });
 
-      if (!error && data) {
-        // Filter documents by category through the categories table
-        const { data: categoryDocs } = await supabase
-          .from('categories')
-          .select('document_id')
-          .eq('id', categoryId);
+      if (docsError) throw docsError;
 
-        const docIds = categoryDocs?.map(c => c.document_id).filter(Boolean) || [];
-        const filtered = data.filter(d => docIds.includes(d.id));
-        setDocuments(filtered);
-      }
+      // Enrich documents with quiz and category info
+      const enrichedDocs = docs?.map(doc => {
+        const info = quizDocMap.get(doc.id) || { quizTitle: '', categoryName: '' };
+        return {
+          ...doc,
+          quiz_title: info.quizTitle,
+          category_name: info.categoryName
+        };
+      }) || [];
+
+      setDocuments(enrichedDocs);
     } catch (error) {
-      console.error('Error fetching documents:', error);
-    }
-  };
-
-  const handleDownload = async (doc: Document) => {
-    try {
-      const { data, error } = await supabase.storage
-        .from('documents')
-        .download(doc.file_url);
-
-      if (error) throw error;
-
-      const url = window.URL.createObjectURL(data);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = doc.title;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-
-      toast.success("파일 다운로드 완료");
-    } catch (error: any) {
-      toast.error("다운로드 중 오류가 발생했습니다");
+      console.error('Error fetching materials:', error);
+      toast.error("자료를 불러오는 중 오류가 발생했습니다");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -128,136 +110,96 @@ const EmployeeMaterials = () => {
     return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
   };
 
-  const filteredCategories = categories.filter(cat =>
-    cat.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('ko-KR', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
+
+  if (selectedDocumentId) {
+    return (
+      <EmployeeLayout>
+        <MaterialDetail
+          documentId={selectedDocumentId}
+          onBack={() => setSelectedDocumentId(null)}
+        />
+      </EmployeeLayout>
+    );
+  }
 
   return (
     <EmployeeLayout>
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold">온보딩 자료</h1>
-          <p className="text-muted-foreground mt-1">
-            카테고리별로 정리된 회사 온보딩 문서를 확인하세요
+          <h1 className="text-3xl font-bold tracking-tight">온보딩 자료</h1>
+          <p className="text-muted-foreground mt-2">
+            할당된 퀴즈와 관련된 온보딩 자료를 확인하세요
           </p>
         </div>
 
-        <div className="grid gap-6 md:grid-cols-[300px_1fr]">
-          {/* Categories Sidebar */}
+        {loading ? (
+          <div className="flex items-center justify-center h-64">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        ) : documents.length === 0 ? (
           <Card>
-            <CardHeader>
-              <CardTitle>카테고리</CardTitle>
-              <div className="relative">
-                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="카테고리 검색..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-8"
-                />
+            <CardContent className="py-12">
+              <div className="text-center space-y-2">
+                <FileText className="h-12 w-12 mx-auto text-muted-foreground" />
+                <h3 className="text-lg font-semibold">온보딩 자료가 없습니다</h3>
+                <p className="text-sm text-muted-foreground">
+                  할당된 퀴즈가 없거나 퀴즈와 연결된 자료가 없습니다
+                </p>
               </div>
-            </CardHeader>
-            <CardContent className="p-0">
-              <ScrollArea className="h-[500px]">
-                {loading ? (
-                  <p className="p-4 text-sm text-muted-foreground">로딩 중...</p>
-                ) : filteredCategories.length === 0 ? (
-                  <p className="p-4 text-sm text-muted-foreground">
-                    카테고리가 없습니다
-                  </p>
-                ) : (
-                  <div className="space-y-1 p-2">
-                    {filteredCategories.map((category) => (
-                      <Button
-                        key={category.id}
-                        variant={selectedCategory === category.id ? "secondary" : "ghost"}
-                        className="w-full justify-start"
-                        onClick={() => setSelectedCategory(category.id)}
-                      >
-                        <FileText className="mr-2 h-4 w-4" />
-                        <span className="flex-1 text-left">{category.name}</span>
-                        <Badge variant="outline" className="ml-2">
-                          {category.document_count || 0}
-                        </Badge>
-                      </Button>
-                    ))}
-                  </div>
-                )}
-              </ScrollArea>
             </CardContent>
           </Card>
-
-          {/* Documents Area */}
-          <div className="space-y-4">
-            {selectedCategory ? (
-              <>
-                <Card>
-                  <CardHeader>
-                    <CardTitle>
-                      {categories.find(c => c.id === selectedCategory)?.name}
-                    </CardTitle>
-                    <CardDescription>
-                      {categories.find(c => c.id === selectedCategory)?.description}
-                    </CardDescription>
-                  </CardHeader>
-                </Card>
-
-                {documents.length === 0 ? (
-                  <Card>
-                    <CardContent className="py-12 text-center">
-                      <FileText className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-                      <p className="text-sm text-muted-foreground">
-                        이 카테고리에 자료가 없습니다
-                      </p>
-                    </CardContent>
-                  </Card>
-                ) : (
-                  <div className="grid gap-4">
-                    {documents.map((doc) => (
-                      <Card key={doc.id}>
-                        <CardContent className="p-6">
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-2">
-                                <FileText className="h-5 w-5 text-primary" />
-                                <h3 className="font-semibold">{doc.title}</h3>
-                              </div>
-                              <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                                <span>{doc.file_type.split('/')[1]?.toUpperCase()}</span>
-                                <span>{formatFileSize(doc.file_size)}</span>
-                                <span>
-                                  {new Date(doc.created_at).toLocaleDateString('ko-KR')}
-                                </span>
-                              </div>
-                            </div>
-                            <div className="flex gap-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleDownload(doc)}
-                              >
-                                <Download className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {documents.map((doc) => (
+              <Card
+                key={doc.id}
+                className="cursor-pointer hover:shadow-lg transition-shadow"
+                onClick={() => setSelectedDocumentId(doc.id)}
+              >
+                <CardHeader>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1">
+                      <CardTitle className="text-lg line-clamp-2">{doc.title}</CardTitle>
+                      <CardDescription className="mt-2">
+                        <Badge variant="outline" className="text-xs">
+                          {doc.category_name}
+                        </Badge>
+                      </CardDescription>
+                    </div>
+                    <FileText className="h-5 w-5 text-muted-foreground flex-shrink-0" />
                   </div>
-                )}
-              </>
-            ) : (
-              <Card>
-                <CardContent className="py-12 text-center">
-                  <FileText className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-                  <p className="text-sm text-muted-foreground">
-                    좌측에서 카테고리를 선택하세요
-                  </p>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2 text-sm text-muted-foreground">
+                    <div className="flex items-center justify-between">
+                      <span>퀴즈</span>
+                      <span className="font-medium text-foreground">{doc.quiz_title}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>파일 형식</span>
+                      <span className="font-medium text-foreground">{doc.file_type}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>파일 크기</span>
+                      <span className="font-medium text-foreground">{formatFileSize(doc.file_size)}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>업로드 날짜</span>
+                      <span className="font-medium text-foreground">{formatDate(doc.created_at)}</span>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
-            )}
+            ))}
           </div>
-        </div>
+        )}
       </div>
     </EmployeeLayout>
   );
