@@ -385,6 +385,14 @@ const AdminDocuments = () => {
     setFlowProgress(40);
 
     try {
+      // Save cleaned text to document for employee viewing
+      if (currentDocForQuiz) {
+        await supabase
+          .from('documents')
+          .update({ ocr_text: editedText })
+          .eq('id', currentDocForQuiz.id);
+      }
+
       // Step 2: Generate quiz with AI
       const { data, error } = await supabase.functions.invoke('generate-quiz', {
         body: { text: editedText }
