@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -34,6 +34,14 @@ export const QuizReviewDialog = ({
 }: QuizReviewDialogProps) => {
   const [questions, setQuestions] = useState<QuizQuestion[]>(initialQuestions);
 
+  // Update questions when prop changes or dialog opens
+  useEffect(() => {
+    if (open && initialQuestions) {
+      console.log('Setting questions in review dialog:', initialQuestions.length, 'questions');
+      setQuestions(initialQuestions);
+    }
+  }, [initialQuestions, open]);
+
   const handleDeleteQuestion = (questionId: string) => {
     setQuestions(prev => prev.filter(q => q.id !== questionId));
   };
@@ -66,15 +74,15 @@ export const QuizReviewDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onCancel()}>
-      <DialogContent className="sm:max-w-4xl max-h-[90vh]">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-4xl max-h-[85vh] flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle>생성된 퀴즈 확인 및 수정</DialogTitle>
           <DialogDescription>
             AI가 생성한 {questions.length}개의 퀴즈 문제를 확인하고 필요시 수정하세요.
           </DialogDescription>
         </DialogHeader>
         
-        <ScrollArea className="h-[500px] pr-4">
+        <ScrollArea className="flex-1 min-h-0 pr-4">
           <div className="space-y-4 py-4">
             {questions.map((question, qIndex) => (
               <Card key={question.id}>
@@ -148,7 +156,7 @@ export const QuizReviewDialog = ({
           </div>
         </ScrollArea>
 
-        <DialogFooter className="gap-2">
+        <DialogFooter className="gap-2 flex-shrink-0">
           <Button variant="outline" onClick={onCancel}>
             취소
           </Button>
