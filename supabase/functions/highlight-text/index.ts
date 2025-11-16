@@ -42,7 +42,7 @@ Deno.serve(async (req) => {
 원본 텍스트의 구조와 내용을 그대로 유지하되, 중요한 부분만 <highlight> 태그로 표시하세요.
 전체 텍스트의 10-20% 정도만 하이라이트하세요.`;
 
-    const response = await fetch('https://api.lovable.app/v1/ai-gateway/chat/completions', {
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${LOVABLE_API_KEY}`,
