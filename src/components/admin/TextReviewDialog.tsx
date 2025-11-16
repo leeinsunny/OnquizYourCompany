@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
@@ -18,6 +18,14 @@ export const TextReviewDialog = ({
   onCancel
 }: TextReviewDialogProps) => {
   const [editedText, setEditedText] = useState(text);
+
+  // Update editedText when text prop changes or dialog opens
+  useEffect(() => {
+    if (open && text) {
+      console.log('Setting extracted text in dialog:', text.length, 'characters');
+      setEditedText(text);
+    }
+  }, [text, open]);
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onCancel()}>
