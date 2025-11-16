@@ -28,6 +28,7 @@ const MaterialDetail = ({ documentId, onBack }: MaterialDetailProps) => {
   const [highlightedText, setHighlightedText] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [highlighting, setHighlighting] = useState(false);
+  const [extractionFailed, setExtractionFailed] = useState(false);
 
   useEffect(() => {
     fetchDocument();
@@ -79,6 +80,7 @@ const MaterialDetail = ({ documentId, onBack }: MaterialDetailProps) => {
   const extractFromPdfAndProcess = async () => {
     if (!document) return;
     try {
+      setExtractionFailed(false);
       setHighlighting(true);
       // 1) Download original PDF from storage
       const { data: fileData, error: dlError } = await supabase.storage
@@ -115,7 +117,8 @@ const MaterialDetail = ({ documentId, onBack }: MaterialDetailProps) => {
       await highlightImportantText(cleanedText);
     } catch (e) {
       console.error('PDF 텍스트 추출 실패:', e);
-      toast.message('PDF에서 텍스트를 추출하지 못했습니다. 원본 PDF를 확인하세요.');
+      setExtractionFailed(true);
+      toast.message('텍스트를 자동으로 준비하지 못했습니다. 원본을 확인할 수 있어요.');
     } finally {
       setHighlighting(false);
     }
