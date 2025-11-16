@@ -3,56 +3,67 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
 import { 
   Upload, 
-  Brain, 
+  FileCheck, 
   Users, 
-  BarChart3, 
-  Shield, 
-  Zap,
-  CheckCircle2,
-  ArrowRight
+  Shield
 } from "lucide-react";
 
 const Landing = () => {
   const navigate = useNavigate();
 
-  const features = [
+  const coreValues = [
     {
       icon: Upload,
-      title: "간편한 자료 업로드",
-      description: "PDF, PPT 등 기존 온보딩 문서를 업로드하면 AI가 자동으로 분석합니다."
-    },
-    {
-      icon: Brain,
-      title: "AI 자동 퀴즈 생성",
-      description: "업로드한 자료에서 핵심 내용을 추출하여 맞춤형 퀴즈를 자동 생성합니다."
+      title: "자료 업로드만 하면 자동 생성",
+      description: "기존 문서로 퀴즈를 자동으로 만듭니다"
     },
     {
       icon: Users,
-      title: "팀별 맞춤 관리",
-      description: "부서별, 팀별로 퀴즈를 할당하고 진행 상황을 실시간으로 추적합니다."
+      title: "팀·부서 단위 진행 상황 확인",
+      description: "실시간으로 학습 현황을 파악합니다"
     },
     {
-      icon: BarChart3,
-      title: "상세한 분석 리포트",
-      description: "신입사원의 학습 진도와 이해도를 한눈에 파악할 수 있습니다."
-    },
-    {
-      icon: Shield,
-      title: "권한 기반 접근",
-      description: "회사 관리자, 부서 관리자, 팀 리더별 권한을 세밀하게 설정합니다."
-    },
-    {
-      icon: Zap,
-      title: "빠른 온보딩",
-      description: "신입사원이 필요한 지식을 빠르고 효과적으로 습득할 수 있습니다."
+      icon: FileCheck,
+      title: "일관된 온보딩 자료 제공",
+      description: "모든 신입사원에게 동일한 교육을 제공합니다"
     }
   ];
 
-  const benefits = [
-    "준비 시간 단축",
-    "자료 표준화",
-    "진행 상황 추적",
-    "반복 업무 감소"
+  const features = [
+    {
+      title: "자료 업로드",
+      description: "PDF, PPT 파일을 드래그 앤 드롭"
+    },
+    {
+      title: "자동 퀴즈 생성",
+      description: "AI가 핵심 내용을 추출해 퀴즈 생성"
+    },
+    {
+      title: "진행 현황 추적",
+      description: "팀별 완료율과 점수 확인"
+    },
+    {
+      title: "권한 기반 접근",
+      description: "관리자·팀장·사원별 권한 관리"
+    }
+  ];
+
+  const steps = [
+    {
+      number: "01",
+      title: "자료 업로드",
+      description: "온보딩 문서 업로드"
+    },
+    {
+      number: "02",
+      title: "자동 분석",
+      description: "AI가 내용 분석 및 퀴즈 생성"
+    },
+    {
+      number: "03",
+      title: "퀴즈 진행",
+      description: "신입사원 학습 시작"
+    }
   ];
 
   return (
@@ -61,14 +72,13 @@ const Landing = () => {
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container flex h-16 items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-gradient-hero" />
-            <span className="text-xl font-bold">OnQuiz</span>
+            <span className="text-2xl font-bold">OnQuiz</span>
           </div>
           <div className="flex items-center gap-4">
             <Button variant="ghost" onClick={() => navigate("/login")}>
               로그인
             </Button>
-            <Button onClick={() => navigate("/signup")}>
+            <Button onClick={() => navigate("/login")}>
               시작하기
             </Button>
           </div>
@@ -76,64 +86,32 @@ const Landing = () => {
       </header>
 
       {/* Hero Section */}
-      <section className="container pt-20 pb-16 md:pt-32 md:pb-24">
-        <div className="mx-auto flex max-w-5xl flex-col items-center gap-8 text-center">
-          <div className="inline-flex items-center rounded-full border px-4 py-1.5 text-sm">
-            <Zap className="mr-2 h-4 w-4 text-primary" />
-            <span>온보딩 자동화 플랫폼</span>
-          </div>
-          <h1 className="text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl lg:text-7xl">
-            반복되는 온보딩 업무,
-            <br />
-            <span className="bg-gradient-hero bg-clip-text text-transparent">
-              이제 자동으로
-            </span>
+      <section className="container pt-24 pb-16 md:pt-32 md:pb-20">
+        <div className="mx-auto flex max-w-3xl flex-col items-center gap-6 text-center">
+          <h1 className="text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl">
+            온보딩 자료로 퀴즈를 자동으로 만듭니다
           </h1>
-          <p className="max-w-2xl text-lg text-muted-foreground md:text-xl">
-            기존 교육 자료를 업로드하면 퀴즈가 자동으로 만들어집니다.
-            <br className="hidden sm:inline" />
-            신입사원 교육, 더 이상 처음부터 준비하지 마세요.
+          <p className="max-w-xl text-lg text-muted-foreground">
+            기존 교육 자료만 있으면 됩니다. 퀴즈 생성부터 진행 추적까지 자동으로 처리합니다.
           </p>
-          <div className="flex flex-col gap-4 sm:flex-row">
-            <Button size="lg" onClick={() => navigate("/signup")} className="gap-2">
-              무료로 시작하기
-              <ArrowRight className="h-4 w-4" />
-            </Button>
-            <Button size="lg" variant="outline">
-              데모 보기
-            </Button>
-          </div>
-          <div className="flex flex-wrap justify-center gap-8 pt-8">
-            {benefits.map((benefit, index) => (
-              <div key={index} className="flex items-center gap-2">
-                <CheckCircle2 className="h-5 w-5 text-success" />
-                <span className="text-sm font-medium">{benefit}</span>
-              </div>
-            ))}
-          </div>
+          <Button size="lg" onClick={() => navigate("/login")}>
+            시작하기
+          </Button>
         </div>
       </section>
 
-      {/* Features Section */}
-      <section className="container py-16 md:py-24">
+      {/* Core Value Section */}
+      <section className="container py-16 md:py-20">
         <div className="mx-auto max-w-5xl">
-          <div className="mb-12 text-center">
-            <h2 className="mb-4 text-3xl font-bold md:text-4xl">
-              주요 기능
-            </h2>
-            <p className="text-lg text-muted-foreground">
-              OnQuiz가 제공하는 강력한 기능들을 확인해보세요
-            </p>
-          </div>
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {features.map((feature, index) => (
-              <Card key={index} className="transition-all hover:shadow-hover">
+          <div className="grid gap-8 md:grid-cols-3">
+            {coreValues.map((value, index) => (
+              <Card key={index} className="border-muted">
                 <CardContent className="pt-6">
                   <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
-                    <feature.icon className="h-6 w-6 text-primary" />
+                    <value.icon className="h-6 w-6 text-primary" />
                   </div>
-                  <h3 className="mb-2 text-xl font-semibold">{feature.title}</h3>
-                  <p className="text-muted-foreground">{feature.description}</p>
+                  <h3 className="mb-2 text-lg font-semibold">{value.title}</h3>
+                  <p className="text-sm text-muted-foreground">{value.description}</p>
                 </CardContent>
               </Card>
             ))}
@@ -141,67 +119,60 @@ const Landing = () => {
         </div>
       </section>
 
-      {/* How It Works Section */}
-      <section className="container py-16 md:py-24 bg-muted/50">
+      {/* Key Features Section */}
+      <section className="container py-16 md:py-20 bg-muted/30">
         <div className="mx-auto max-w-5xl">
           <div className="mb-12 text-center">
-            <h2 className="mb-4 text-3xl font-bold md:text-4xl">
-              어떻게 작동하나요?
+            <h2 className="mb-3 text-3xl font-bold">
+              주요 기능
             </h2>
-            <p className="text-lg text-muted-foreground">
-              간단한 3단계로 시작하세요
-            </p>
           </div>
-          <div className="grid gap-8 md:grid-cols-3">
-            {[
-              {
-                step: "01",
-                title: "자료 업로드",
-                description: "기존 온보딩 문서를 드래그 앤 드롭으로 업로드합니다"
-              },
-              {
-                step: "02",
-                title: "AI 분석",
-                description: "AI가 자동으로 내용을 분석하고 퀴즈를 생성합니다"
-              },
-              {
-                step: "03",
-                title: "퀴즈 할당",
-                description: "신입사원에게 퀴즈를 할당하고 진행 상황을 추적합니다"
-              }
-            ].map((item, index) => (
-              <div key={index} className="relative">
-                <div className="mb-4 text-5xl font-bold text-primary/20">
-                  {item.step}
-                </div>
-                <h3 className="mb-2 text-xl font-semibold">{item.title}</h3>
-                <p className="text-muted-foreground">{item.description}</p>
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            {features.map((feature, index) => (
+              <div key={index} className="space-y-2">
+                <h3 className="font-semibold">{feature.title}</h3>
+                <p className="text-sm text-muted-foreground">{feature.description}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* CTA Section */}
-      <section className="container py-16 md:py-24">
-        <Card className="bg-gradient-hero text-white">
-          <CardContent className="flex flex-col items-center gap-6 py-16 text-center">
-            <h2 className="text-3xl font-bold md:text-4xl">
-              지금 바로 시작하세요
+      {/* How It Works Section */}
+      <section className="container py-16 md:py-20">
+        <div className="mx-auto max-w-5xl">
+          <div className="mb-12 text-center">
+            <h2 className="mb-3 text-3xl font-bold">
+              사용 방법
             </h2>
-            <p className="max-w-2xl text-lg opacity-90">
-              OnQuiz로 신입사원 온보딩을 혁신하고
-              <br />
-              효율적인 학습 경험을 제공하세요
-            </p>
+          </div>
+          <div className="grid gap-8 md:grid-cols-3">
+            {steps.map((step, index) => (
+              <div key={index} className="text-center">
+                <div className="mb-4 text-4xl font-bold text-primary/30">
+                  {step.number}
+                </div>
+                <h3 className="mb-2 text-lg font-semibold">{step.title}</h3>
+                <p className="text-sm text-muted-foreground">{step.description}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Final CTA Section */}
+      <section className="container py-16 md:py-20">
+        <Card className="bg-primary text-primary-foreground">
+          <CardContent className="flex flex-col items-center gap-6 py-12 text-center">
+            <h2 className="text-2xl font-bold md:text-3xl">
+              온보딩을 자동화하세요
+            </h2>
             <Button 
               size="lg" 
               variant="secondary"
-              onClick={() => navigate("/signup")}
-              className="gap-2"
+              onClick={() => navigate("/login")}
             >
-              무료로 시작하기
-              <ArrowRight className="h-4 w-4" />
+              시작하기
             </Button>
           </CardContent>
         </Card>
@@ -209,14 +180,8 @@ const Landing = () => {
 
       {/* Footer */}
       <footer className="border-t py-8">
-        <div className="container flex flex-col items-center justify-between gap-4 md:flex-row">
-          <div className="flex items-center gap-2">
-            <div className="h-6 w-6 rounded-lg bg-gradient-hero" />
-            <span className="font-semibold">OnQuiz</span>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            © 2025 OnQuiz. All rights reserved.
-          </p>
+        <div className="container text-center text-sm text-muted-foreground">
+          © 2025 OnQuiz. All rights reserved.
         </div>
       </footer>
     </div>
