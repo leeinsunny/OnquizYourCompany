@@ -8,16 +8,14 @@ import {
   BookOpen,
   ClipboardList,
   Trophy,
-  TrendingUp,
   Play,
   CheckCircle2,
-  Clock,
-  LogOut,
   Loader2
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import EmployeeLayout from "@/components/employee/EmployeeLayout";
 
 interface QuizAssignment {
   id: string;
@@ -42,7 +40,7 @@ interface QuizAssignment {
 
 const EmployeeDashboard = () => {
   const navigate = useNavigate();
-  const { user, signOut } = useAuth();
+  const { user } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<any>(null);
@@ -142,14 +140,12 @@ const EmployeeDashboard = () => {
       setStats({
         totalQuizzes: enrichedAssignments.length,
         completedQuizzes: completedAttempts.length,
-        averageScore: completedAttempts.length > 0 
-          ? Math.round(totalScore / completedAttempts.length) 
-          : 0,
+        averageScore: completedAttempts.length > 0 ? Math.round(totalScore / completedAttempts.length) : 0,
         totalCategories: uniqueCategories.size,
         completedCategories: completedCategories.size
       });
 
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error fetching dashboard data:', error);
       toast({
         title: "오류",
@@ -158,19 +154,6 @@ const EmployeeDashboard = () => {
       });
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleLogout = async () => {
-    try {
-      await signOut();
-      navigate('/login');
-    } catch (error) {
-      toast({
-        title: "오류",
-        description: "로그아웃에 실패했습니다.",
-        variant: "destructive"
-      });
     }
   };
 
@@ -187,26 +170,37 @@ const EmployeeDashboard = () => {
   };
 
   const getQuizStatus = (assignment: QuizAssignment) => {
-    if (assignment.attempts.length === 0) {
-      return { status: 'not-started', label: '시작하기' };
-    }
-    
     const latestAttempt = assignment.attempts[0];
-    if (latestAttempt.status === 'completed') {
-      return { status: 'completed', label: '완료', score: latestAttempt.percentage };
+    
+    if (!latestAttempt) {
+      return { status: 'not_started', label: '시작하기', variant: 'default' as const };
     }
     
-    return { status: 'in-progress', label: '이어하기' };
+    if (latestAttempt.status === 'in_progress') {
+      return { status: 'in_progress', label: '계속하기', variant: 'secondary' as const };
+    }
+    
+    if (latestAttempt.status === 'completed') {
+      const percentage = latestAttempt.percentage || 0;
+      return {
+        status: 'completed',
+        label: `완료 (${percentage}%)`,
+        variant: 'outline' as const,
+        score: percentage
+      };
+    }
+    
+    return { status: 'not_started', label: '시작하기', variant: 'default' as const };
   };
 
-  // Calculate achievements
-  const hasCompletedFirstQuiz = stats.completedQuizzes >= 1;
-  const hasCompletedAll = stats.completedQuizzes === stats.totalQuizzes && stats.totalQuizzes > 0;
-  const hasPerfectScore = assignments.some(
-    a => a.attempts[0]?.percentage === 100
+  // Check achievements
+  const hasCompletedFirstQuiz = assignments.some(a => a.attempts.length > 0);
+  const hasPerfectScore = assignments.some(a => 
+    a.attempts.some(attempt => attempt.percentage === 100)
   );
-  
-  // Check for 3-day streak (simplified - checking if there are attempts on 3 different days)
+  const hasCompletedAll = stats.totalQuizzes > 0 && stats.completedQuizzes === stats.totalQuizzes;
+
+  // Check for 3-day streak
   const attemptDates = assignments
     .flatMap(a => a.attempts)
     .map(attempt => new Date(attempt.id).toDateString());
@@ -232,237 +226,199 @@ const EmployeeDashboard = () => {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
+      <EmployeeLayout>
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </EmployeeLayout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="sticky top-0 z-30 border-b bg-background/95 backdrop-blur">
-        <div className="container flex h-16 items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-gradient-hero" />
-            <span className="text-lg font-bold">OnQuiz</span>
-          </div>
-          <nav className="hidden md:flex items-center gap-6">
-            <Button variant="ghost" onClick={() => navigate('/employee/dashboard')}>홈</Button>
-            <Button variant="ghost" onClick={() => navigate('/employee/materials')}>온보딩 자료</Button>
-            <Button variant="ghost" onClick={() => navigate('/employee/quizzes')}>퀴즈</Button>
-            <Button variant="ghost" onClick={() => navigate('/employee/profile')}>내 프로필</Button>
-          </nav>
-          <Button variant="ghost" onClick={handleLogout}>
-            <LogOut className="mr-2 h-4 w-4" />
-            로그아웃
-          </Button>
-        </div>
-      </header>
+    <EmployeeLayout>
+      {/* Welcome Section */}
+      <div className="mb-8 rounded-lg bg-gradient-hero p-8 text-white">
+        <h1 className="mb-2 text-3xl font-bold">
+          환영합니다, {profile?.name || '사용자'}님! 👋
+        </h1>
+        <p className="text-lg opacity-90">
+          첫 출근을 환영합니다. 온보딩 학습을 시작해보세요!
+        </p>
+      </div>
 
-      {/* Main Content */}
-      <main className="container py-8">
-        {/* Welcome Section */}
-        <div className="mb-8 rounded-lg bg-gradient-hero p-8 text-white">
-          <h1 className="mb-2 text-3xl font-bold">
-            환영합니다, {profile?.name || '사용자'}님! 👋
-          </h1>
-          <p className="text-lg opacity-90">
-            첫 출근을 환영합니다. 온보딩 학습을 시작해보세요!
-          </p>
-        </div>
-
-        {/* Progress Overview */}
-        <div className="mb-8 grid gap-4 md:grid-cols-4">
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">할당된 퀴즈</p>
-                  <p className="mt-1 text-2xl font-bold">
-                    {stats.completedQuizzes}/{stats.totalQuizzes}
-                  </p>
-                </div>
-                <ClipboardList className="h-8 w-8 text-primary" />
+      {/* Progress Overview */}
+      <div className="mb-8 grid gap-4 md:grid-cols-4">
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">할당된 퀴즈</p>
+                <p className="mt-1 text-2xl font-bold">
+                  {stats.completedQuizzes}/{stats.totalQuizzes}
+                </p>
               </div>
-              <Progress value={completionRate} className="mt-3" />
-            </CardContent>
-          </Card>
+              <ClipboardList className="h-8 w-8 text-primary" />
+            </div>
+            <Progress value={completionRate} className="mt-3" />
+          </CardContent>
+        </Card>
 
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">평균 점수</p>
-                  <p className="mt-1 text-2xl font-bold">{stats.averageScore}점</p>
-                </div>
-                <Trophy className="h-8 w-8 text-warning" />
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">평균 점수</p>
+                <p className="mt-1 text-2xl font-bold">{stats.averageScore}점</p>
               </div>
-            </CardContent>
-          </Card>
+              <Trophy className="h-8 w-8 text-warning" />
+            </div>
+          </CardContent>
+        </Card>
 
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">완료한 카테고리</p>
-                  <p className="mt-1 text-2xl font-bold">
-                    {stats.completedCategories}/{stats.totalCategories}
-                  </p>
-                </div>
-                <BookOpen className="h-8 w-8 text-success" />
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">완료한 카테고리</p>
+                <p className="mt-1 text-2xl font-bold">
+                  {stats.completedCategories}/{stats.totalCategories}
+                </p>
               </div>
-            </CardContent>
-          </Card>
+              <BookOpen className="h-8 w-8 text-success" />
+            </div>
+          </CardContent>
+        </Card>
 
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">진행률</p>
-                  <p className="mt-1 text-2xl font-bold">{Math.round(completionRate)}%</p>
-                </div>
-                <TrendingUp className="h-8 w-8 text-blue-600" />
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">진행률</p>
+                <p className="mt-1 text-2xl font-bold">
+                  {Math.round(completionRate)}%
+                </p>
               </div>
-            </CardContent>
-          </Card>
-        </div>
+              <CheckCircle2 className="h-8 w-8 text-primary" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
-        <div className="grid gap-6 lg:grid-cols-3">
-          {/* Assigned Quizzes */}
-          <Card className="lg:col-span-2">
-            <CardHeader>
-              <CardTitle>할당된 퀴즈</CardTitle>
-              <CardDescription>나에게 할당된 온보딩 퀴즈 목록</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {assignments.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <ClipboardList className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                  <p>할당된 퀴즈가 없습니다.</p>
-                </div>
-              ) : (
-                assignments.map((assignment) => {
-                  const quizStatus = getQuizStatus(assignment);
-                  return (
-                    <div
-                      key={assignment.id}
-                      className="flex items-center justify-between rounded-lg border p-4 transition-colors hover:bg-muted/50"
-                    >
-                      <div className="flex items-center gap-4">
-                        <div
-                          className={`flex h-12 w-12 items-center justify-center rounded-lg ${
-                            quizStatus.status === "completed"
-                              ? "bg-success/10"
-                              : quizStatus.status === "in-progress"
-                              ? "bg-warning/10"
-                              : "bg-muted"
-                          }`}
-                        >
-                          {quizStatus.status === "completed" ? (
-                            <CheckCircle2 className="h-6 w-6 text-success" />
-                          ) : quizStatus.status === "in-progress" ? (
-                            <Clock className="h-6 w-6 text-warning" />
-                          ) : (
-                            <ClipboardList className="h-6 w-6 text-muted-foreground" />
-                          )}
-                        </div>
-                        <div>
-                          <h3 className="font-semibold">{assignment.quiz.title}</h3>
-                          <div className="mt-1 flex items-center gap-3 text-sm text-muted-foreground">
-                            <span>{assignment.quiz.category?.name || '미분류'}</span>
-                            <span>•</span>
-                            <span>{assignment.questions_count}문항</span>
-                            {quizStatus.status === "completed" && quizStatus.score !== undefined && (
-                              <>
-                                <span>•</span>
-                                <span className="text-success font-medium">
-                                  {Math.round(quizStatus.score)}점
-                                </span>
-                              </>
-                            )}
-                          </div>
-                        </div>
+      <div className="grid gap-6 lg:grid-cols-3">
+        {/* Assigned Quizzes */}
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle>할당된 퀴즈</CardTitle>
+            <CardDescription>나에게 할당된 온보딩 퀴즈 목록</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {assignments.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <ClipboardList className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                <p>할당된 퀴즈가 없습니다.</p>
+              </div>
+            ) : (
+              assignments.map((assignment) => {
+                const quizStatus = getQuizStatus(assignment);
+                return (
+                  <div
+                    key={assignment.id}
+                    className="flex items-center justify-between rounded-lg border p-4 transition-colors hover:bg-muted/50"
+                  >
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h4 className="font-semibold">{assignment.quiz.title}</h4>
+                        {quizStatus.status === 'completed' && (
+                          <CheckCircle2 className="h-4 w-4 text-success" />
+                        )}
                       </div>
-                      <div>
-                        {quizStatus.status === "completed" ? (
-                          <Badge variant="secondary">완료</Badge>
-                        ) : (
-                          <Button 
-                            size="sm" 
-                            className="gap-2"
-                            onClick={() => handleStartQuiz(assignment)}
-                          >
-                            <Play className="h-4 w-4" />
-                            {quizStatus.label}
-                          </Button>
+                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                        <span>{assignment.quiz.category?.name}</span>
+                        <span>•</span>
+                        <span>{assignment.questions_count}문제</span>
+                        {quizStatus.score !== undefined && (
+                          <>
+                            <span>•</span>
+                            <span className="font-medium text-foreground">
+                              {quizStatus.score}점
+                            </span>
+                          </>
                         )}
                       </div>
                     </div>
-                  );
-                })
+                    <Button
+                      variant={quizStatus.variant}
+                      size="sm"
+                      onClick={() => handleStartQuiz(assignment)}
+                    >
+                      {quizStatus.label}
+                    </Button>
+                  </div>
+                );
+              })
+            )}
+          </CardContent>
+        </Card>
+
+        <div className="space-y-6">
+          {/* Next Recommended */}
+          <Card>
+            <CardHeader>
+              <CardTitle>다음 추천 학습</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {nextQuiz ? (
+                <div className="space-y-4">
+                  <div>
+                    <h4 className="font-semibold mb-1">{nextQuiz.quiz.title}</h4>
+                    <p className="text-sm text-muted-foreground">
+                      {nextQuiz.quiz.category?.name}
+                    </p>
+                  </div>
+                  <Button
+                    className="w-full gap-2"
+                    onClick={() => handleStartQuiz(nextQuiz)}
+                  >
+                    {getQuizStatus(nextQuiz).label}
+                  </Button>
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Trophy className="h-10 w-10 mx-auto mb-3 text-success" />
+                  <p className="font-semibold text-foreground">모든 퀴즈 완료!</p>
+                  <p className="text-sm mt-1">훌륭합니다! 🎉</p>
+                </div>
               )}
             </CardContent>
           </Card>
 
-          {/* Achievements & Next Steps */}
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>다음 추천 학습</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {nextQuiz ? (
-                  <div className="rounded-lg border-2 border-dashed border-primary/50 p-4 text-center">
-                    <BookOpen className="mx-auto mb-3 h-10 w-10 text-primary" />
-                    <h3 className="mb-1 font-semibold">{nextQuiz.quiz.title}</h3>
-                    <p className="mb-4 text-sm text-muted-foreground">
-                      {nextQuiz.quiz.category?.name || '미분류'} • {nextQuiz.questions_count}문항
-                    </p>
-                    <Button 
-                      className="w-full"
-                      onClick={() => handleStartQuiz(nextQuiz)}
-                    >
-                      {getQuizStatus(nextQuiz).label}
-                    </Button>
+          {/* Achievements */}
+          <Card>
+            <CardHeader>
+              <CardTitle>획득한 배지</CardTitle>
+              <CardDescription>학습 성취도</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 gap-3">
+                {achievements.map((achievement, index) => (
+                  <div
+                    key={index}
+                    className={`rounded-lg border p-3 text-center transition-all ${
+                      achievement.earned
+                        ? "border-primary bg-primary/5"
+                        : "border-dashed opacity-50"
+                    }`}
+                  >
+                    <div className="mb-1 text-3xl">{achievement.icon}</div>
+                    <p className="text-xs font-medium">{achievement.name}</p>
                   </div>
-                ) : (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <Trophy className="h-10 w-10 mx-auto mb-3 text-success" />
-                    <p className="font-semibold text-foreground">모든 퀴즈 완료!</p>
-                    <p className="text-sm mt-1">훌륭합니다! 🎉</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>획득한 배지</CardTitle>
-                <CardDescription>학습 성취도</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 gap-3">
-                  {achievements.map((achievement, index) => (
-                    <div
-                      key={index}
-                      className={`rounded-lg border p-3 text-center transition-all ${
-                        achievement.earned
-                          ? "border-primary bg-primary/5"
-                          : "border-dashed opacity-50"
-                      }`}
-                    >
-                      <div className="mb-1 text-3xl">{achievement.icon}</div>
-                      <p className="text-xs font-medium">{achievement.name}</p>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
         </div>
-      </main>
-    </div>
+      </div>
+    </EmployeeLayout>
   );
 };
 
