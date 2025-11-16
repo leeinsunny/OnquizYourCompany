@@ -5,7 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ClipboardList, Users, Plus, BarChart3, Eye } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { ClipboardList, Users, Plus, BarChart3, Eye, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -23,6 +24,9 @@ const AdminQuizzes = () => {
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [detailQuizId, setDetailQuizId] = useState<string>("");
   const [detailQuizTitle, setDetailQuizTitle] = useState<string>("");
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [quizToDelete, setQuizToDelete] = useState<any>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     fetchQuizzes();
@@ -110,6 +114,36 @@ const AdminQuizzes = () => {
     setDetailQuizId(quiz.id);
     setDetailQuizTitle(quiz.title);
     setDetailDialogOpen(true);
+  };
+
+  const handleDeleteClick = (quiz: any) => {
+    setQuizToDelete(quiz);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!quizToDelete) return;
+
+    setIsDeleting(true);
+    try {
+      // Delete quiz (cascade will delete related questions, options, attempts, etc.)
+      const { error } = await supabase
+        .from('quizzes')
+        .delete()
+        .eq('id', quizToDelete.id);
+
+      if (error) throw error;
+
+      toast.success("퀴즈가 삭제되었습니다");
+      setDeleteDialogOpen(false);
+      setQuizToDelete(null);
+      await fetchQuizzes();
+    } catch (error) {
+      console.error('Error deleting quiz:', error);
+      toast.error("퀴즈 삭제 중 오류가 발생했습니다");
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   return (
@@ -251,6 +285,15 @@ const AdminQuizzes = () => {
                         </div>
                       </DialogContent>
                     </Dialog>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-2 text-destructive hover:text-destructive"
+                      onClick={() => handleDeleteClick(quiz)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      삭제
+                    </Button>
                   </div>
                 </div>
               ))}
@@ -265,6 +308,29 @@ const AdminQuizzes = () => {
         quizId={detailQuizId}
         quizTitle={detailQuizTitle}
       />
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>퀴즈 삭제</AlertDialogTitle>
+            <AlertDialogDescription>
+              "{quizToDelete?.title}" 퀴즈를 삭제하시겠습니까?
+              <br />
+              이 작업은 되돌릴 수 없으며, 관련된 모든 데이터(문제, 응시 기록 등)가 함께 삭제됩니다.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>취소</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? "삭제 중..." : "삭제"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       </div>
     </AdminLayout>
   );
