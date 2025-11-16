@@ -211,11 +211,29 @@ const AdminProfile = () => {
               </div>
               <div className="space-y-2">
                 <Label>직급</Label>
-                <Input 
-                  value={isEditing ? formData.job_title : profile?.job_title || '-'} 
-                  disabled={!isEditing}
-                  onChange={(e) => setFormData({ ...formData, job_title: e.target.value })}
-                />
+                {isEditing ? (
+                  <Select
+                    value={formData.job_title}
+                    onValueChange={(value) => setFormData({ ...formData, job_title: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="직급을 선택하세요" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="인턴">인턴</SelectItem>
+                      <SelectItem value="사원">사원</SelectItem>
+                      <SelectItem value="대리">대리</SelectItem>
+                      <SelectItem value="과장">과장</SelectItem>
+                      <SelectItem value="차장">차장</SelectItem>
+                      <SelectItem value="팀장">팀장</SelectItem>
+                      <SelectItem value="부장">부장</SelectItem>
+                      <SelectItem value="이사">이사</SelectItem>
+                      <SelectItem value="본부장">본부장</SelectItem>
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Input value={profile?.job_title || '-'} disabled />
+                )}
               </div>
               <div className="space-y-2">
                 <Label>권한</Label>

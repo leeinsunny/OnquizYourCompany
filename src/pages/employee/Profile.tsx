@@ -234,10 +234,25 @@ const EmployeeProfile = () => {
                 <div className="space-y-2">
                   <Label>직급</Label>
                   {isEditing ? (
-                    <Input 
+                    <Select
                       value={formData.job_title}
-                      onChange={(e) => setFormData({ ...formData, job_title: e.target.value })}
-                    />
+                      onValueChange={(value) => setFormData({ ...formData, job_title: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="직급을 선택하세요" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="인턴">인턴</SelectItem>
+                        <SelectItem value="사원">사원</SelectItem>
+                        <SelectItem value="대리">대리</SelectItem>
+                        <SelectItem value="과장">과장</SelectItem>
+                        <SelectItem value="차장">차장</SelectItem>
+                        <SelectItem value="팀장">팀장</SelectItem>
+                        <SelectItem value="부장">부장</SelectItem>
+                        <SelectItem value="이사">이사</SelectItem>
+                        <SelectItem value="본부장">본부장</SelectItem>
+                      </SelectContent>
+                    </Select>
                   ) : (
                     <p className="font-medium">{profile.job_title || '-'}</p>
                   )}

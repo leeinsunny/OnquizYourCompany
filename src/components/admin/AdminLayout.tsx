@@ -1,8 +1,9 @@
-import { ReactNode } from "react";
+import { ReactNode, useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserRole } from "@/hooks/useUserRole";
+import { supabase } from "@/integrations/supabase/client";
 import {
   BarChart3,
   FileText,
@@ -46,6 +47,20 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
   const location = useLocation();
   const { signOut, user } = useAuth();
   const { role, isAdmin, isManager } = useUserRole();
+  const [jobTitle, setJobTitle] = useState<string>('');
+
+  useEffect(() => {
+    const fetchJobTitle = async () => {
+      if (!user) return;
+      const { data } = await supabase
+        .from('profiles')
+        .select('job_title')
+        .eq('id', user.id)
+        .single();
+      if (data) setJobTitle(data.job_title || '');
+    };
+    fetchJobTitle();
+  }, [user]);
 
   const navItems = [
     { 
@@ -140,8 +155,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
                           {user?.email?.split('@')[0]}
                         </span>
                         <span className="text-xs text-muted-foreground">
-                          {role === 'super_admin' ? '회사 관리자' : 
-                           role === 'admin' ? '부서 관리자' : '팀 매니저'}
+                          {(role === 'super_admin' || role === 'admin') ? '회사 관리자' : jobTitle || '직원'}
                         </span>
                       </div>
                       <ChevronRight className="ml-auto h-4 w-4 group-data-[collapsible=icon]:hidden" />
