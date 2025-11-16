@@ -9,7 +9,6 @@ import {
   SidebarContent,
   SidebarGroup,
   SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
@@ -19,6 +18,7 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 const items = [
+  { title: "대시보드", url: "/employee/dashboard", icon: Home },
   { title: "온보딩 자료", url: "/employee/materials", icon: BookOpen },
   { title: "퀴즈", url: "/employee/quizzes", icon: ClipboardList },
   { title: "내 프로필", url: "/employee/profile", icon: User },
@@ -52,7 +52,7 @@ export default function EmployeeSidebar() {
     <Sidebar collapsible="icon">
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>내비게이션</SidebarGroupLabel>
+          
           <SidebarGroupContent>
             <SidebarMenu>
               {items.map((item) => (
