@@ -26,7 +26,8 @@ import {
   SidebarProvider,
   SidebarTrigger,
   SidebarHeader,
-  SidebarFooter
+  SidebarFooter,
+  SidebarMenuSkeleton
 } from "@/components/ui/sidebar";
 import {
   DropdownMenu,
@@ -46,7 +47,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { signOut, user } = useAuth();
-  const { role, isAdmin, isManager } = useUserRole();
+  const { role, isAdmin, isManager, loading: roleLoading } = useUserRole();
   const [jobTitle, setJobTitle] = useState<string>('');
 
   useEffect(() => {
@@ -122,18 +123,22 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
               <SidebarGroupLabel>메뉴</SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
-                  {visibleNavItems.map((item) => (
-                    <SidebarMenuItem key={item.path}>
-                      <SidebarMenuButton
-                        onClick={() => navigate(item.path)}
-                        isActive={isActive(item.path)}
-                        tooltip={item.label}
-                      >
-                        <item.icon className="h-4 w-4" />
-                        <span>{item.label}</span>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  ))}
+                  {roleLoading ? (
+                    <SidebarMenuSkeleton />
+                  ) : (
+                    visibleNavItems.map((item) => (
+                      <SidebarMenuItem key={item.path}>
+                        <SidebarMenuButton
+                          onClick={() => navigate(item.path)}
+                          isActive={isActive(item.path)}
+                          tooltip={item.label}
+                        >
+                          <item.icon className="h-4 w-4" />
+                          <span>{item.label}</span>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    ))
+                  )}
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
