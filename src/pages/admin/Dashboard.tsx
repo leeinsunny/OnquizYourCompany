@@ -11,17 +11,17 @@ import { Users, FileText, ClipboardList, TrendingUp } from "lucide-react";
 const AdminDashboard = () => {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
-  const { isAdmin, loading: roleLoading } = useUserRole();
+  const { isAdmin, loading: roleLoading, isManager } = useUserRole();
 
   useEffect(() => {
     if (!authLoading && !roleLoading) {
       if (!user) {
         navigate("/login");
-      } else if (!isAdmin) {
+      } else if (!isAdmin && !isManager) {
         navigate("/employee/dashboard");
       }
     }
-  }, [user, isAdmin, authLoading, roleLoading, navigate]);
+  }, [user, isAdmin, isManager, authLoading, roleLoading, navigate]);
 
   const stats = [
     { title: "총 온보딩 자료", value: "24", change: "+3 이번 주", icon: FileText, color: "text-blue-600" },
