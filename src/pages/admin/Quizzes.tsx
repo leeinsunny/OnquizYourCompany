@@ -218,7 +218,7 @@ const AdminQuizzes = () => {
                   className="flex items-center justify-between rounded-lg border p-4 hover:bg-muted/50 transition-colors"
                 >
                   <div>
-                    <div className="flex items-center gap-3 mb-2">
+                    <div className="flex items-center gap-3 mb-3">
                       <h3 className="font-semibold">{quiz.title}</h3>
                       {quiz.is_active ? (
                         <Badge variant="default">활성</Badge>
