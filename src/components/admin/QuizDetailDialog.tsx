@@ -41,12 +41,15 @@ export const QuizDetailDialog = ({ open, onClose, quizId, quizTitle }: QuizDetai
   useEffect(() => {
     if (open && quizId) {
       fetchQuestions();
+      setIsEditing(false); // Reset editing state when dialog opens
     }
   }, [open, quizId]);
 
   useEffect(() => {
-    setEditedQuestions(questions);
-  }, [questions]);
+    if (!isEditing) {
+      setEditedQuestions(questions);
+    }
+  }, [questions, isEditing]);
 
   const fetchQuestions = async () => {
     setLoading(true);
@@ -190,12 +193,18 @@ export const QuizDetailDialog = ({ open, onClose, quizId, quizTitle }: QuizDetai
     setIsEditing(false);
   };
 
+  const handleClose = () => {
+    setIsEditing(false);
+    setEditedQuestions(questions);
+    onClose();
+  };
+
   const displayQuestions = isEditing ? editedQuestions : questions;
 
   return (
-    <Dialog open={open} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-4xl max-h-[90vh]">
-        <DialogHeader>
+    <Dialog open={open} onOpenChange={(open) => !open && handleClose()}>
+      <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <div className="flex items-center justify-between">
             <div>
               <DialogTitle>{quizTitle}</DialogTitle>
@@ -203,16 +212,10 @@ export const QuizDetailDialog = ({ open, onClose, quizId, quizTitle }: QuizDetai
                 총 {questions.length}개의 문제
               </DialogDescription>
             </div>
-            {!isEditing && (
-              <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
-                <Edit2 className="h-4 w-4 mr-2" />
-                수정
-              </Button>
-            )}
           </div>
         </DialogHeader>
 
-        <ScrollArea className="h-[70vh] pr-4">
+        <ScrollArea className="flex-1 min-h-0 pr-4">
           {loading ? (
             <div className="text-center py-12">
               <p className="text-muted-foreground">로딩 중...</p>
@@ -223,48 +226,129 @@ export const QuizDetailDialog = ({ open, onClose, quizId, quizTitle }: QuizDetai
             </div>
           ) : (
             <div className="space-y-6">
-              {questions.map((question, qIndex) => (
+              {displayQuestions.map((question, qIndex) => (
                 <Card key={question.id}>
                   <CardHeader>
-                    <CardTitle className="text-base">
-                      문제 {qIndex + 1}. {question.question_text}
+                    <CardTitle className="text-base flex items-center justify-between">
+                      <span>문제 {qIndex + 1}</span>
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-3">
-                    {question.quiz_options.map((option, optIndex) => (
-                      <div
-                        key={option.id}
-                        className={`flex items-start gap-3 p-3 rounded-lg border ${
-                          option.is_correct
-                            ? 'bg-success/10 border-success'
-                            : 'bg-muted/30 border-border'
-                        }`}
-                      >
-                        <div className="mt-0.5">
-                          {option.is_correct ? (
-                            <Check className="h-5 w-5 text-success" />
+                  <CardContent className="space-y-4">
+                    {/* Question Text */}
+                    {isEditing ? (
+                      <Textarea
+                        value={question.question_text}
+                        onChange={(e) => handleQuestionChange(qIndex, 'question_text', e.target.value)}
+                        className="min-h-[80px]"
+                      />
+                    ) : (
+                      <p className="font-medium">{question.question_text}</p>
+                    )}
+
+                    {/* Options */}
+                    <div className="space-y-3">
+                      {question.quiz_options.map((option, optIndex) => (
+                        <div key={option.id}>
+                          {isEditing ? (
+                            <div className="space-y-2 p-3 border rounded-lg">
+                              <div className="flex items-start gap-3">
+                                <Checkbox
+                                  checked={option.is_correct}
+                                  onCheckedChange={(checked) => 
+                                    handleOptionChange(qIndex, optIndex, 'is_correct', checked)
+                                  }
+                                />
+                                <div className="flex-1 space-y-2">
+                                  <Input
+                                    value={option.option_text}
+                                    onChange={(e) => 
+                                      handleOptionChange(qIndex, optIndex, 'option_text', e.target.value)
+                                    }
+                                    placeholder={`선택지 ${String.fromCharCode(65 + optIndex)}`}
+                                  />
+                                  <Textarea
+                                    value={option.explanation || ''}
+                                    onChange={(e) => 
+                                      handleOptionChange(qIndex, optIndex, 'explanation', e.target.value)
+                                    }
+                                    placeholder="해설 (선택사항)"
+                                    className="min-h-[60px]"
+                                  />
+                                </div>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleDeleteOption(qIndex, optIndex, option.id)}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </div>
                           ) : (
-                            <X className="h-5 w-5 text-muted-foreground" />
+                            <div
+                              className={`flex items-start gap-3 p-3 rounded-lg border ${
+                                option.is_correct
+                                  ? 'bg-success/10 border-success'
+                                  : 'bg-muted/30 border-border'
+                              }`}
+                            >
+                              <div className="mt-0.5">
+                                {option.is_correct ? (
+                                  <Check className="h-5 w-5 text-success" />
+                                ) : (
+                                  <X className="h-5 w-5 text-muted-foreground" />
+                                )}
+                              </div>
+                              <div className="flex-1">
+                                <p className="font-medium">
+                                  {String.fromCharCode(65 + optIndex)}. {option.option_text}
+                                </p>
+                                {option.explanation && (
+                                  <p className="text-sm text-muted-foreground mt-2">
+                                    <strong>해설:</strong> {option.explanation}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
                           )}
                         </div>
-                        <div className="flex-1">
-                          <p className="font-medium">
-                            {String.fromCharCode(65 + optIndex)}. {option.option_text}
-                          </p>
-                          {option.is_correct && option.explanation && (
-                            <p className="text-sm text-muted-foreground mt-2">
-                              <strong>해설:</strong> {option.explanation}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    ))}
+                      ))}
+                      {isEditing && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleAddOption(qIndex)}
+                          className="w-full"
+                        >
+                          <Plus className="h-4 w-4 mr-2" />
+                          선택지 추가
+                        </Button>
+                      )}
+                    </div>
                   </CardContent>
                 </Card>
               ))}
             </div>
           )}
         </ScrollArea>
+
+        <DialogFooter className="flex-shrink-0 gap-2">
+          {isEditing ? (
+            <>
+              <Button variant="outline" onClick={handleCancel} disabled={isSaving}>
+                취소
+              </Button>
+              <Button onClick={handleSave} disabled={isSaving}>
+                {isSaving ? "저장 중..." : "저장하기"}
+              </Button>
+            </>
+          ) : (
+            <Button variant="outline" onClick={() => setIsEditing(true)}>
+              <Edit2 className="h-4 w-4 mr-2" />
+              수정하기
+            </Button>
+          )}
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

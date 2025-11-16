@@ -70,9 +70,11 @@ const AdminQuizzes = () => {
     const { data } = await supabase
       .from('profiles')
       .select('id, name, email, department_id')
-      .eq('company_id', profile.company_id);
+      .eq('company_id', profile.company_id)
+      .neq('id', user?.id); // Exclude current user
 
     if (data) {
+      console.log('Fetched users for assignment:', data);
       setUsers(data);
     }
   };
