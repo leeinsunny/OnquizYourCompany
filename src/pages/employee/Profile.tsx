@@ -2,9 +2,14 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Award, TrendingUp, BookOpen, Clock } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Award, TrendingUp, BookOpen, Clock, Pencil } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 import EmployeeLayout from "@/components/employee/EmployeeLayout";
 
 const EmployeeProfile = () => {
@@ -19,9 +24,19 @@ const EmployeeProfile = () => {
   });
   const [categoryProgress, setCategoryProgress] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [departments, setDepartments] = useState<any[]>([]);
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    job_title: '',
+    department_id: ''
+  });
 
   useEffect(() => {
     fetchProfileData();
+    fetchDepartments();
   }, []);
 
   const fetchProfileData = async () => {
@@ -36,6 +51,12 @@ const EmployeeProfile = () => {
         .single();
 
       setProfile(profileData);
+      setFormData({
+        name: profileData?.name || '',
+        email: profileData?.email || '',
+        job_title: profileData?.job_title || '',
+        department_id: profileData?.department_id || ''
+      });
 
       // Fetch quiz attempts
       const { data: attempts } = await supabase
@@ -86,6 +107,58 @@ const EmployeeProfile = () => {
     }
   };
 
+  const fetchDepartments = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('departments')
+        .select('*')
+        .order('name');
+
+      if (error) throw error;
+      setDepartments(data || []);
+    } catch (error) {
+      console.error('Error fetching departments:', error);
+    }
+  };
+
+  const handleSave = async () => {
+    if (!user) return;
+
+    setIsSaving(true);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          name: formData.name,
+          email: formData.email,
+          job_title: formData.job_title,
+          department_id: formData.department_id || null
+        })
+        .eq('id', user.id);
+
+      if (error) throw error;
+
+      toast.success("프로필이 업데이트되었습니다");
+      setIsEditing(false);
+      await fetchProfileData();
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      toast.error("프로필 업데이트에 실패했습니다");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleCancel = () => {
+    setFormData({
+      name: profile?.name || '',
+      email: profile?.email || '',
+      job_title: profile?.job_title || '',
+      department_id: profile?.department_id || ''
+    });
+    setIsEditing(false);
+  };
+
   const completionRate = stats.totalQuizzes > 0
     ? Math.round((stats.completedQuizzes / stats.totalQuizzes) * 100)
     : 0;
@@ -103,28 +176,83 @@ const EmployeeProfile = () => {
         {/* Profile Card */}
         {profile && (
           <Card>
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>프로필 정보</CardTitle>
+              {!isEditing && (
+                <Button variant="ghost" size="icon" onClick={() => setIsEditing(true)}>
+                  <Pencil className="h-4 w-4" />
+                </Button>
+              )}
             </CardHeader>
             <CardContent>
               <div className="grid gap-4 md:grid-cols-2">
-                <div>
-                  <p className="text-sm text-muted-foreground">이름</p>
-                  <p className="font-medium">{profile.name}</p>
+                <div className="space-y-2">
+                  <Label>이름</Label>
+                  {isEditing ? (
+                    <Input 
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    />
+                  ) : (
+                    <p className="font-medium">{profile.name}</p>
+                  )}
                 </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">이메일</p>
-                  <p className="font-medium">{profile.email}</p>
+                <div className="space-y-2">
+                  <Label>이메일</Label>
+                  {isEditing ? (
+                    <Input 
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    />
+                  ) : (
+                    <p className="font-medium">{profile.email}</p>
+                  )}
                 </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">부서</p>
-                  <p className="font-medium">{profile.departments?.name || '-'}</p>
+                <div className="space-y-2">
+                  <Label>부서</Label>
+                  {isEditing ? (
+                    <Select 
+                      value={formData.department_id} 
+                      onValueChange={(value) => setFormData({ ...formData, department_id: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="부서 선택" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {departments.map((dept) => (
+                          <SelectItem key={dept.id} value={dept.id}>
+                            {dept.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <p className="font-medium">{profile.departments?.name || '-'}</p>
+                  )}
                 </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">직급</p>
-                  <p className="font-medium">{profile.job_title || '-'}</p>
+                <div className="space-y-2">
+                  <Label>직급</Label>
+                  {isEditing ? (
+                    <Input 
+                      value={formData.job_title}
+                      onChange={(e) => setFormData({ ...formData, job_title: e.target.value })}
+                    />
+                  ) : (
+                    <p className="font-medium">{profile.job_title || '-'}</p>
+                  )}
                 </div>
               </div>
+              {isEditing && (
+                <div className="flex justify-end gap-2 mt-4">
+                  <Button variant="outline" onClick={handleCancel}>
+                    취소
+                  </Button>
+                  <Button onClick={handleSave} disabled={isSaving}>
+                    {isSaving ? "저장 중..." : "저장"}
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
