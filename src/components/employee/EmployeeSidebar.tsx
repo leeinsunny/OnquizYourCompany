@@ -27,9 +27,9 @@ export default function EmployeeSidebar() {
   const isActive = (path: string) => location.pathname === path;
 
   return (
-    <Sidebar collapsible className={state === "collapsed" ? "w-14" : "w-60"}>
+    <Sidebar collapsible="icon">
       <SidebarContent>
-        <SidebarGroup defaultOpen>
+        <SidebarGroup>
           <SidebarGroupLabel>내비게이션</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
