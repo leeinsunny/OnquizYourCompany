@@ -46,9 +46,14 @@ const MaterialDetail = ({ documentId, onBack }: MaterialDetailProps) => {
       if (error) throw error;
       setDocument(data);
 
-      // If OCR text exists, clean then highlight it
+      // If OCR text exists and looks formatted (has <highlight> tags), use it directly
       if (data.ocr_text && data.ocr_text.trim().length > 0) {
-        await cleanAndHighlightText(data.ocr_text);
+        if (data.ocr_text.includes('<highlight>')) {
+          setHighlightedText(data.ocr_text);
+          setHighlighting(false);
+        } else {
+          await cleanAndHighlightText(data.ocr_text);
+        }
       } else {
         await extractFromPdfAndProcess(data);
       }
