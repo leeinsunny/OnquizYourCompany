@@ -162,7 +162,7 @@ export const QuizReviewDialog = ({
           </Button>
           <Button 
             onClick={() => onConfirm(questions)}
-            disabled={questions.length === 0 || questions.some(q => !q.question_text.trim() || q.options.every(o => !o.is_correct))}
+            disabled={questions.length === 0}
           >
             다음 단계로
           </Button>
