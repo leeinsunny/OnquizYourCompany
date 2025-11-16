@@ -149,28 +149,45 @@ const MaterialDetail = ({ documentId, onBack }: MaterialDetailProps) => {
   const renderHighlightedContent = () => {
     if (!highlightedText) return null;
 
-    // Replace <highlight> tags with styled spans
-    const parts = highlightedText.split(/(<highlight>|<\/highlight>)/);
-    let isHighlighted = false;
+    // Split text into paragraphs and process each one
+    const paragraphs = highlightedText.split(/\n\n+/);
     
     return (
-      <div className="whitespace-pre-wrap leading-relaxed">
-        {parts.map((part, index) => {
-          if (part === '<highlight>') {
-            isHighlighted = true;
-            return null;
-          }
-          if (part === '</highlight>') {
-            isHighlighted = false;
-            return null;
-          }
+      <div className="space-y-4">
+        {paragraphs.map((paragraph, pIndex) => {
+          if (!paragraph.trim()) return null;
+          
+          // Replace <highlight> tags with styled spans
+          const parts = paragraph.split(/(<highlight>|<\/highlight>)/);
+          let isHighlighted = false;
+          
           return (
-            <span
-              key={index}
-              className={isHighlighted ? 'bg-yellow-200 dark:bg-yellow-900/40 px-1 font-medium' : ''}
-            >
-              {part}
-            </span>
+            <p key={pIndex} className="leading-relaxed text-foreground">
+              {parts.map((part, index) => {
+                if (part === '<highlight>') {
+                  isHighlighted = true;
+                  return null;
+                }
+                if (part === '</highlight>') {
+                  isHighlighted = false;
+                  return null;
+                }
+                if (!part.trim()) return null;
+                
+                return (
+                  <span
+                    key={index}
+                    className={
+                      isHighlighted 
+                        ? 'bg-yellow-200 dark:bg-yellow-900/50 px-1.5 py-0.5 rounded font-medium transition-colors' 
+                        : ''
+                    }
+                  >
+                    {part}
+                  </span>
+                );
+              })}
+            </p>
           );
         })}
       </div>
@@ -196,38 +213,56 @@ const MaterialDetail = ({ documentId, onBack }: MaterialDetailProps) => {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div className="flex items-center gap-4">
-        <Button variant="outline" size="sm" onClick={onBack}>
+        <Button variant="ghost" size="sm" onClick={onBack}>
           <ArrowLeft className="h-4 w-4 mr-2" />
           목록으로
         </Button>
-        <Button variant="outline" size="sm" onClick={handleDownload}>
-          <Download className="h-4 w-4 mr-2" />
-          PDF 다운로드
-        </Button>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{document.title}</CardTitle>
+      <Card className="border-primary/20">
+        <CardHeader className="space-y-1 pb-4">
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <p className="text-sm text-muted-foreground">온보딩 자료</p>
+              <CardTitle className="text-2xl">{document.title}</CardTitle>
+            </div>
+            <Button variant="outline" size="sm" onClick={handleDownload}>
+              <Download className="h-4 w-4 mr-2" />
+              원본 다운로드
+            </Button>
+          </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-6">
           {highlighting ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="text-center space-y-2">
-                <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" />
-                <p className="text-sm text-muted-foreground">중요한 부분을 분석하고 있습니다...</p>
+            <div className="flex items-center justify-center py-16">
+              <div className="text-center space-y-3">
+                <Loader2 className="h-10 w-10 animate-spin text-primary mx-auto" />
+                <p className="text-base font-medium">학습 자료를 준비하고 있습니다</p>
+                <p className="text-sm text-muted-foreground">중요한 내용을 분석 중입니다...</p>
               </div>
             </div>
-          ) : document.ocr_text ? (
-            <div className="prose prose-sm max-w-none dark:prose-invert">
-              {renderHighlightedContent()}
+          ) : highlightedText ? (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground pb-2 border-b">
+                <span className="inline-block w-4 h-4 bg-yellow-200 dark:bg-yellow-900/40 rounded"></span>
+                <span>노란색으로 표시된 부분이 핵심 내용입니다</span>
+              </div>
+              <div className="prose prose-sm max-w-none dark:prose-invert leading-relaxed text-base">
+                {renderHighlightedContent()}
+              </div>
             </div>
           ) : (
-            <div className="text-center py-12 text-muted-foreground">
-              <p>이 문서는 텍스트 추출이 완료되지 않았습니다.</p>
-              <p className="text-sm mt-2">PDF를 다운로드하여 확인하세요.</p>
+            <div className="text-center py-16 space-y-4">
+              <div className="text-muted-foreground">
+                <p className="text-base font-medium">텍스트 추출이 완료되지 않았습니다</p>
+                <p className="text-sm mt-2">원본 PDF를 다운로드하여 확인하세요</p>
+              </div>
+              <Button variant="outline" onClick={handleDownload}>
+                <Download className="h-4 w-4 mr-2" />
+                PDF 다운로드
+              </Button>
             </div>
           )}
         </CardContent>
