@@ -157,7 +157,7 @@ const EmployeeQuizzes = () => {
                               )}
                             </td>
                             <td className="py-3 text-right">
-                              <Link to={`/employee/quiz/${q.id}`}>
+                              <Link to={`/employee/quiz-take/${q.id}`}>
                                 <Button size="sm" variant="secondary">
                                   {q.attempt ? '복습하기' : '시작하기'}
                                 </Button>
@@ -206,7 +206,7 @@ const EmployeeQuizzes = () => {
                               )}
                             </td>
                             <td className="py-3 text-right">
-                              <Link to={`/employee/quiz/${q.id}`}>
+                              <Link to={`/employee/quiz-take/${q.id}`}>
                                 <Button size="sm" variant="secondary">
                                   {q.attempt ? '복습하기' : '시작하기'}
                                 </Button>
