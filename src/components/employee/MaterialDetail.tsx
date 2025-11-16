@@ -50,7 +50,7 @@ const MaterialDetail = ({ documentId, onBack }: MaterialDetailProps) => {
       if (data.ocr_text && data.ocr_text.trim().length > 0) {
         await highlightImportantText(data.ocr_text);
       } else {
-        await extractFromPdfAndProcess();
+        await extractFromPdfAndProcess(data);
       }
     } catch (error) {
       console.error('Error fetching document:', error);
@@ -77,18 +77,25 @@ const MaterialDetail = ({ documentId, onBack }: MaterialDetailProps) => {
     }
   };
 
-  const extractFromPdfAndProcess = async () => {
-    if (!document) return;
+  const extractFromPdfAndProcess = async (doc: Document) => {
     try {
       setExtractionFailed(false);
       setHighlighting(true);
+      
+      console.log('Starting PDF extraction for:', doc.file_url);
+      
       // 1) Download original PDF from storage
       const { data: fileData, error: dlError } = await supabase.storage
         .from('documents')
-        .download(document.file_url);
-      if (dlError || !fileData) throw dlError || new Error('PDF 다운로드 실패');
+        .download(doc.file_url);
+      
+      if (dlError || !fileData) {
+        console.error('PDF download error:', dlError);
+        throw dlError || new Error('PDF 다운로드 실패');
+      }
 
       const arrayBuffer = await fileData.arrayBuffer();
+      console.log('PDF downloaded, size:', arrayBuffer.byteLength);
 
       // 2) Extract raw text with pdfjs (same approach as admin)
       const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
@@ -104,6 +111,8 @@ const MaterialDetail = ({ documentId, onBack }: MaterialDetailProps) => {
       }
 
       const rawText = fullText.trim();
+      console.log('Extracted text length:', rawText.length);
+      
       if (!rawText) throw new Error('PDF에서 텍스트를 찾지 못했습니다');
 
       // 3) Clean OCR noise
@@ -111,14 +120,14 @@ const MaterialDetail = ({ documentId, onBack }: MaterialDetailProps) => {
         body: { text: rawText }
       });
       const cleanedText: string = cleaned?.cleanedText || rawText;
-      if (cleanError) console.warn('clean-ocr-text error, using raw text');
+      if (cleanError) console.warn('clean-ocr-text error, using raw text:', cleanError);
 
       // 4) Highlight important parts
       await highlightImportantText(cleanedText);
     } catch (e) {
       console.error('PDF 텍스트 추출 실패:', e);
       setExtractionFailed(true);
-      toast.message('텍스트를 자동으로 준비하지 못했습니다. 원본을 확인할 수 있어요.');
+      toast.error('텍스트를 자동으로 준비하지 못했습니다. 원본을 확인할 수 있어요.');
     } finally {
       setHighlighting(false);
     }
