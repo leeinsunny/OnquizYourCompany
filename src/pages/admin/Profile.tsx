@@ -24,8 +24,20 @@ const AdminProfile = () => {
     name: '',
     email: '',
     job_title: '',
-    department_id: ''
+    department_id: '',
+    department_name: ''
   });
+
+  const standardDepartments = [
+    "개발팀",
+    "마케팅팀",
+    "영업팀",
+    "인사팀",
+    "재무팀",
+    "디자인팀",
+    "기획팀",
+    "운영팀"
+  ];
 
   const emailDomain = formData.email.includes('@') 
     ? formData.email.split('@')[1] 
@@ -52,7 +64,8 @@ const AdminProfile = () => {
         name: data.name || '',
         email: data.email || '',
         job_title: data.job_title || '',
-        department_id: data.department_id || ''
+        department_id: data.department_id || '',
+        department_name: data.departments?.name || ''
       });
     } catch (error) {
       console.error('Error fetching profile:', error);
@@ -93,21 +106,91 @@ const AdminProfile = () => {
 
     setIsSaving(true);
     try {
+      // Check if email domain changed
+      const newDomain = formData.email.split('@')[1];
+      const oldDomain = profile?.email.split('@')[1];
+      
+      let updateData: any = {
+        name: formData.name,
+        email: formData.email,
+        job_title: formData.job_title
+      };
+
+      // Handle department - find or create
+      if (formData.department_name) {
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('company_id')
+          .eq('id', user.id)
+          .single();
+
+        if (profileData?.company_id) {
+          let { data: dept } = await supabase
+            .from('departments')
+            .select('id')
+            .eq('company_id', profileData.company_id)
+            .eq('name', formData.department_name)
+            .single();
+
+          if (!dept) {
+            const { data: newDept, error: deptError } = await supabase
+              .from('departments')
+              .insert({ 
+                company_id: profileData.company_id, 
+                name: formData.department_name 
+              })
+              .select('id')
+              .single();
+
+            if (deptError) throw deptError;
+            dept = newDept;
+          }
+
+          updateData.department_id = dept.id;
+        }
+      } else {
+        updateData.department_id = null;
+      }
+
+      // If email domain changed, update company
+      if (newDomain !== oldDomain) {
+        // Find or create company with new domain
+        let { data: company } = await supabase
+          .from('companies')
+          .select('id')
+          .eq('domain', newDomain)
+          .single();
+
+        if (!company) {
+          const { data: newCompany, error: companyError } = await supabase
+            .from('companies')
+            .insert({ name: newDomain, domain: newDomain })
+            .select('id')
+            .single();
+
+          if (companyError) throw companyError;
+          company = newCompany;
+        }
+
+        updateData.company_id = company.id;
+        
+        // Reset department if company changes
+        updateData.department_id = null;
+        setFormData({ ...formData, department_id: '', department_name: '' });
+      }
+
       const { error } = await supabase
         .from('profiles')
-        .update({
-          name: formData.name,
-          email: formData.email,
-          job_title: formData.job_title,
-          department_id: formData.department_id || null
-        })
+        .update(updateData)
         .eq('id', user.id);
 
       if (error) throw error;
 
       toast.success("프로필이 업데이트되었습니다");
       setIsEditing(false);
+      setIsEditingJob(false);
       await fetchProfile();
+      await fetchDepartments();
     } catch (error) {
       console.error('Error updating profile:', error);
       toast.error("프로필 업데이트에 실패했습니다");
@@ -121,7 +204,8 @@ const AdminProfile = () => {
       name: profile?.name || '',
       email: profile?.email || '',
       job_title: profile?.job_title || '',
-      department_id: profile?.department_id || ''
+      department_id: profile?.department_id || '',
+      department_name: profile?.departments?.name || ''
     });
     setIsEditing(false);
     setIsEditingJob(false);
@@ -216,16 +300,16 @@ const AdminProfile = () => {
                 <Label>부서</Label>
                 {isEditingJob ? (
                   <Select 
-                    value={formData.department_id} 
-                    onValueChange={(value) => setFormData({ ...formData, department_id: value })}
+                    value={formData.department_name} 
+                    onValueChange={(value) => setFormData({ ...formData, department_name: value })}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="부서 선택" />
                     </SelectTrigger>
                     <SelectContent>
-                      {departments.map((dept) => (
-                        <SelectItem key={dept.id} value={dept.id}>
-                          {dept.name}
+                      {standardDepartments.map((dept) => (
+                        <SelectItem key={dept} value={dept}>
+                          {dept}
                         </SelectItem>
                       ))}
                     </SelectContent>
