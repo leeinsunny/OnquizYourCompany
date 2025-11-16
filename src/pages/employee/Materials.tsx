@@ -156,49 +156,40 @@ const EmployeeMaterials = () => {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {documents.map((doc) => (
-              <Card
-                key={doc.id}
-                className="cursor-pointer hover:shadow-lg transition-shadow"
-                onClick={() => setSelectedDocumentId(doc.id)}
-              >
-                <CardHeader>
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1">
-                      <CardTitle className="text-lg line-clamp-2">{doc.title}</CardTitle>
-                      <CardDescription className="mt-2">
-                        <Badge variant="outline" className="text-xs">
-                          {doc.category_name}
-                        </Badge>
-                      </CardDescription>
-                    </div>
-                    <FileText className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2 text-sm text-muted-foreground">
-                    <div className="flex items-center justify-between">
-                      <span>퀴즈</span>
-                      <span className="font-medium text-foreground">{doc.quiz_title}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span>파일 형식</span>
-                      <span className="font-medium text-foreground">{doc.file_type}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span>파일 크기</span>
-                      <span className="font-medium text-foreground">{formatFileSize(doc.file_size)}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span>업로드 날짜</span>
-                      <span className="font-medium text-foreground">{formatDate(doc.created_at)}</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+          <Card>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b text-muted-foreground">
+                      <th className="text-left py-3">제목</th>
+                      <th className="text-left py-3">퀴즈</th>
+                      <th className="text-left py-3">카테고리</th>
+                      <th className="text-left py-3">형식</th>
+                      <th className="text-right py-3">크기</th>
+                      <th className="text-right py-3">업로드</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {documents.map((doc) => (
+                      <tr
+                        key={doc.id}
+                        className="border-b hover:bg-muted/50 cursor-pointer"
+                        onClick={() => setSelectedDocumentId(doc.id)}
+                      >
+                        <td className="py-3 font-medium text-foreground">{doc.title}</td>
+                        <td className="py-3">{doc.quiz_title}</td>
+                        <td className="py-3"><Badge variant="outline" className="text-xs">{doc.category_name}</Badge></td>
+                        <td className="py-3">{doc.file_type}</td>
+                        <td className="py-3 text-right">{formatFileSize(doc.file_size)}</td>
+                        <td className="py-3 text-right">{formatDate(doc.created_at)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
         )}
       </div>
     </EmployeeLayout>

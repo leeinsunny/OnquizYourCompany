@@ -27,34 +27,13 @@ const EmployeeLayout = ({ children }: EmployeeLayoutProps) => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Top Navigation */}
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container flex h-16 items-center justify-between">
-          <div className="flex items-center gap-6">
-            <Link to="/employee/dashboard" className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-lg bg-gradient-hero" />
-              <span className="text-xl font-bold">OnQuiz</span>
-            </Link>
-            
-            <nav className="hidden md:flex items-center gap-1">
-              {navigation.map((item) => {
-                const Icon = item.icon;
-                const isActive = location.pathname === item.href;
-                return (
-                  <Link key={item.name} to={item.href}>
-                    <Button
-                      variant={isActive ? "secondary" : "ghost"}
-                      className="gap-2"
-                    >
-                      <Icon className="h-4 w-4" />
-                      {item.name}
-                    </Button>
-                  </Link>
-                );
-              })}
-            </nav>
+          <div className="flex items-center gap-3">
+            {/* Sidebar trigger is rendered inside Provider below; keep space for logo */}
+            <div className="h-8 w-8 rounded-lg bg-gradient-hero" />
+            <span className="text-xl font-bold">OnQuiz</span>
           </div>
-
           <div className="flex items-center gap-4">
             <span className="text-sm text-muted-foreground hidden sm:inline">
               {user?.email}
@@ -67,34 +46,31 @@ const EmployeeLayout = ({ children }: EmployeeLayoutProps) => {
         </div>
       </header>
 
-      {/* Mobile Navigation */}
-      <nav className="md:hidden border-b bg-background">
-        <div className="container">
-          <div className="flex items-center justify-around py-2">
-            {navigation.map((item) => {
-              const Icon = item.icon;
-              const isActive = location.pathname === item.href;
-              return (
-                <Link key={item.name} to={item.href}>
-                  <Button
-                    variant={isActive ? "secondary" : "ghost"}
-                    size="sm"
-                    className="flex-col h-auto py-2 px-3"
-                  >
-                    <Icon className="h-5 w-5" />
-                    <span className="text-xs mt-1">{item.name}</span>
-                  </Button>
-                </Link>
-              );
-            })}
-          </div>
-        </div>
-      </nav>
-
-      {/* Main Content */}
-      <main className="container py-6">
-        {children}
-      </main>
+      {/* Sidebar Layout */}
+      <div className="flex">
+        {/* Provider wraps the layout to enable collapsing sidebar */}
+        {/* We inline import to avoid circular deps */}
+        {/* eslint-disable-next-line @typescript-eslint/no-var-requires */}
+        {(() => {
+          const { SidebarProvider, SidebarTrigger } = require("@/components/ui/sidebar");
+          const EmployeeSidebar = require("@/components/employee/EmployeeSidebar").default;
+          return (
+            <SidebarProvider>
+              <div className="w-full flex">
+                <EmployeeSidebar />
+                <main className="flex-1">
+                  <div className="border-b bg-background">
+                    <div className="container py-2">
+                      <SidebarTrigger />
+                    </div>
+                  </div>
+                  <div className="container py-6">{children}</div>
+                </main>
+              </div>
+            </SidebarProvider>
+          );
+        })()}
+      </div>
     </div>
   );
 };

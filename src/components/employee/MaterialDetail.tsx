@@ -40,9 +40,11 @@ const MaterialDetail = ({ documentId, onBack }: MaterialDetailProps) => {
       if (error) throw error;
       setDocument(data);
 
-      // If OCR text exists, highlight it
-      if (data.ocr_text) {
+      // If OCR text exists, highlight it; otherwise attempt on-demand extraction from PDF
+      if (data.ocr_text && data.ocr_text.trim().length > 0) {
         await highlightImportantText(data.ocr_text);
+      } else {
+        await extractFromPdfAndProcess();
       }
     } catch (error) {
       console.error('Error fetching document:', error);
@@ -63,8 +65,55 @@ const MaterialDetail = ({ documentId, onBack }: MaterialDetailProps) => {
       setHighlightedText(data.highlightedText || text);
     } catch (error) {
       console.error('Error highlighting text:', error);
-      // Fallback to original text
       setHighlightedText(text);
+    } finally {
+      setHighlighting(false);
+    }
+  };
+
+  const extractFromPdfAndProcess = async () => {
+    if (!document) return;
+    try {
+      setHighlighting(true);
+      // 1) Download original PDF from storage
+      const { data: fileData, error: dlError } = await supabase.storage
+        .from('documents')
+        .download(document.file_url);
+      if (dlError || !fileData) throw dlError || new Error('PDF 다운로드 실패');
+
+      const arrayBuffer = await fileData.arrayBuffer();
+
+      // 2) Extract raw text with pdfjs-dist (ESM build)
+      const pdfjs: any = await import('pdfjs-dist/build/pdf.mjs');
+      // Use official worker hosted via unpkg to avoid bundler worker issues
+      // @ts-ignore
+      pdfjs.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@5.4.394/build/pdf.worker.mjs';
+
+      const loadingTask = pdfjs.getDocument({ data: arrayBuffer });
+      const pdf = await loadingTask.promise;
+      let fullText = '';
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const textContent = await page.getTextContent();
+        const pageText = textContent.items.map((it: any) => (it.str ? it.str : '')).join(' ');
+        fullText += pageText + '\n\n';
+      }
+
+      const rawText = fullText.trim();
+      if (!rawText) throw new Error('PDF에서 텍스트를 찾지 못했습니다');
+
+      // 3) Clean OCR noise
+      const { data: cleaned, error: cleanError } = await supabase.functions.invoke('clean-ocr-text', {
+        body: { text: rawText }
+      });
+      const cleanedText: string = cleaned?.cleanedText || rawText;
+      if (cleanError) console.warn('clean-ocr-text error, using raw text');
+
+      // 4) Highlight important parts
+      await highlightImportantText(cleanedText);
+    } catch (e) {
+      console.error('PDF 텍스트 추출 실패:', e);
+      toast.message('PDF에서 텍스트를 추출하지 못했습니다. 원본 PDF를 확인하세요.');
     } finally {
       setHighlighting(false);
     }
