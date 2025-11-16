@@ -7,14 +7,17 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Upload, FileText, Clock, CheckCircle, AlertCircle, X, Eye, Trash2, Sparkles } from "lucide-react";
+import { Upload, FileText, Clock, CheckCircle, AlertCircle, X, Eye, Trash2, Sparkles, RefreshCw, Edit } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
 import AdminLayout from "@/components/admin/AdminLayout";
 import * as pdfjsLib from 'pdfjs-dist';
 import workerSrc from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { QuizGenerationModal } from "@/components/admin/QuizGenerationModal";
+import { QuizGenerationProgressModal } from "@/components/admin/QuizGenerationProgressModal";
+import { DeleteDocumentDialog } from "@/components/admin/DeleteDocumentDialog";
 
 // Configure PDF.js worker - local bundle
 pdfjsLib.GlobalWorkerOptions.workerSrc = workerSrc;
@@ -28,10 +31,13 @@ interface Document {
   status: string;
   created_at: string;
   uploaded_by: string;
+  has_quiz?: boolean;
+  quiz_count?: number;
 }
 
 const AdminDocuments = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [documents, setDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
@@ -46,6 +52,11 @@ const AdminDocuments = () => {
   const [extractedText, setExtractedText] = useState("");
   const [currentDocForQuiz, setCurrentDocForQuiz] = useState<Document | null>(null);
   const [companyId, setCompanyId] = useState<string>("");
+  const [progressModalOpen, setProgressModalOpen] = useState(false);
+  const [generationStep, setGenerationStep] = useState<'cleaning' | 'generating' | 'complete'>('cleaning');
+  const [generationProgress, setGenerationProgress] = useState(0);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [documentToDelete, setDocumentToDelete] = useState<Document | null>(null);
 
   useEffect(() => {
     fetchDocuments();
@@ -70,7 +81,23 @@ const AdminDocuments = () => {
         .order('created_at', { ascending: false });
 
       if (!error && data) {
-        setDocuments(data);
+        // Check which documents have quizzes
+        const docsWithQuizStatus = await Promise.all(
+          data.map(async (doc) => {
+            const { data: categories } = await supabase
+              .from('categories')
+              .select('id')
+              .eq('document_id', doc.id);
+            
+            return {
+              ...doc,
+              has_quiz: categories && categories.length > 0,
+              quiz_count: categories?.length || 0
+            };
+          })
+        );
+        
+        setDocuments(docsWithQuizStatus);
       }
     } catch (error) {
       console.error('Error fetching documents:', error);
@@ -191,20 +218,51 @@ const AdminDocuments = () => {
     }
   };
 
-  const handleDelete = async (doc: Document) => {
-    if (!confirm(`"${doc.title}" 문서를 삭제하시겠습니까?`)) return;
+  const handleDeleteClick = (doc: Document) => {
+    setDocumentToDelete(doc);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!documentToDelete) return;
 
     try {
+      // Delete associated quizzes and categories first
+      if (documentToDelete.has_quiz) {
+        const { data: categories } = await supabase
+          .from('categories')
+          .select('id')
+          .eq('document_id', documentToDelete.id);
+
+        if (categories && categories.length > 0) {
+          const categoryIds = categories.map(c => c.id);
+          
+          // Delete quizzes associated with these categories
+          await supabase
+            .from('quizzes')
+            .delete()
+            .in('category_id', categoryIds);
+        }
+
+        // Delete categories
+        await supabase
+          .from('categories')
+          .delete()
+          .eq('document_id', documentToDelete.id);
+      }
+
+      // Delete storage file
       const { error: storageError } = await supabase.storage
         .from('documents')
-        .remove([doc.file_url]);
+        .remove([documentToDelete.file_url]);
 
       if (storageError) throw storageError;
 
+      // Delete document record
       const { error: dbError } = await supabase
         .from('documents')
         .delete()
-        .eq('id', doc.id);
+        .eq('id', documentToDelete.id);
 
       if (dbError) throw dbError;
 
@@ -212,29 +270,29 @@ const AdminDocuments = () => {
       fetchDocuments();
     } catch (error: any) {
       toast.error(error.message || "삭제 중 오류가 발생했습니다");
+    } finally {
+      setDeleteDialogOpen(false);
+      setDocumentToDelete(null);
     }
   };
 
-  const handleGenerateQuiz = async (doc: Document) => {
+  const handleGenerateQuiz = async (doc: Document, isRegeneration: boolean = false) => {
     if (!user) return;
 
     setGeneratingQuiz(doc.id);
-    toast.info("PDF에서 텍스트를 추출하고 있습니다...");
+    setProgressModalOpen(true);
+    setGenerationStep('cleaning');
+    setGenerationProgress(0);
 
     try {
-      // Set document status to processing
-      await supabase
-        .from('documents')
-        .update({ status: 'processing' })
-        .eq('id', doc.id);
-      fetchDocuments();
-
       // Download the file from storage
       const { data: fileData, error: downloadError } = await supabase.storage
         .from('documents')
         .download(doc.file_url);
 
       if (downloadError) throw downloadError;
+
+      setGenerationProgress(20);
 
       // Extract text from PDF
       let text = "";
@@ -251,45 +309,45 @@ const AdminDocuments = () => {
             .join(' ');
           text += pageText + '\n\n';
         }
-        
-        if (!text.trim()) {
-          throw new Error("PDF에서 텍스트를 추출할 수 없습니다");
-        }
-      } else {
-        throw new Error("PDF 파일만 지원됩니다");
+      }
+      
+      if (!text.trim()) {
+        throw new Error("PDF에서 텍스트를 추출할 수 없습니다");
       }
 
-      // Clean the OCR text using AI
-      toast.info("AI로 텍스트를 정리하고 있습니다...");
-      
-      const { data: cleanData, error: cleanError } = await supabase.functions.invoke('clean-ocr-text', {
+      setGenerationProgress(40);
+
+      // Clean OCR text
+      const { data: cleanedData, error: cleanError } = await supabase.functions.invoke('clean-ocr-text', {
         body: { text }
       });
 
-      if (cleanError) {
-        console.error('Text cleaning error:', cleanError);
-        toast.warning("텍스트 정리에 실패했습니다. 원본 텍스트를 사용합니다.");
-        setExtractedText(text);
-      } else {
-        const cleanedText = cleanData?.cleanedText || text;
-        setExtractedText(cleanedText);
-        toast.success("텍스트가 정리되었습니다!");
-      }
+      if (cleanError) throw cleanError;
 
+      setGenerationProgress(60);
+      setGenerationStep('generating');
+
+      const cleanedText = cleanedData.cleanedText || text;
+      
+      setExtractedText(cleanedText);
       setCurrentDocForQuiz(doc);
-      setQuizModalOpen(true);
+      
+      setGenerationProgress(100);
+      setGenerationStep('complete');
+      
+      setTimeout(() => {
+        setProgressModalOpen(false);
+        setQuizModalOpen(true);
+      }, 1000);
+
     } catch (error: any) {
-      console.error('Text extraction error:', error);
-      toast.error(error.message || "텍스트 추출 중 오류가 발생했습니다");
-      // Mark as failed
-      await supabase
-        .from('documents')
-        .update({ status: 'failed' })
-        .eq('id', doc.id);
-      fetchDocuments();
+      console.error('Quiz generation error:', error);
+      toast.error(error.message || "퀴즈 생성 준비 중 오류가 발생했습니다");
+      setProgressModalOpen(false);
     } finally {
       setGeneratingQuiz(null);
     }
+  };
   };
 
   const handleQuizComplete = () => {
@@ -481,11 +539,11 @@ const AdminDocuments = () => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>문서명</TableHead>
-                  <TableHead>형식</TableHead>
+                  <TableHead>파일명</TableHead>
                   <TableHead>크기</TableHead>
-                  <TableHead>업로드 일시</TableHead>
                   <TableHead>상태</TableHead>
+                  <TableHead>퀴즈</TableHead>
+                  <TableHead>업로드일</TableHead>
                   <TableHead className="text-right">작업</TableHead>
                 </TableRow>
               </TableHeader>
@@ -493,35 +551,61 @@ const AdminDocuments = () => {
                 {documents.map((doc) => (
                   <TableRow key={doc.id}>
                     <TableCell className="font-medium">{doc.title}</TableCell>
-                    <TableCell>{doc.file_type.split('/')[1]?.toUpperCase() || 'Unknown'}</TableCell>
                     <TableCell>{formatFileSize(doc.file_size)}</TableCell>
-                    <TableCell>{formatDate(doc.created_at)}</TableCell>
                     <TableCell>{getStatusBadge(doc.status)}</TableCell>
+                    <TableCell>
+                      {doc.has_quiz ? (
+                        <Badge variant="default" className="gap-1">
+                          <CheckCircle className="h-3 w-3" />
+                          생성 완료
+                        </Badge>
+                      ) : (
+                        <Badge variant="secondary">미생성</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {new Date(doc.created_at).toLocaleDateString('ko-KR')}
+                    </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
+                      <div className="flex justify-end gap-1">
+                        {doc.has_quiz ? (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => navigate('/admin/quizzes', { state: { documentId: doc.id } })}
+                              title="퀴즈 관리"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleGenerateQuiz(doc, true)}
+                              disabled={generatingQuiz === doc.id}
+                              title="퀴즈 재생성"
+                            >
+                              <RefreshCw className="h-4 w-4" />
+                            </Button>
+                          </>
+                        ) : (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleGenerateQuiz(doc)}
+                            disabled={generatingQuiz === doc.id}
+                            title="퀴즈 생성"
+                          >
+                            <Sparkles className="h-4 w-4" />
+                          </Button>
+                        )}
                         <Button
-                          variant="outline"
+                          variant="ghost"
                           size="sm"
-                          onClick={() => handleViewDocument(doc)}
+                          onClick={() => handleDeleteClick(doc)}
+                          title="삭제"
                         >
-                          <Eye className="h-3 w-3 mr-1" />
-                          상세
-                        </Button>
-                        <Button
-                          variant="default"
-                          size="sm"
-                          onClick={() => handleGenerateQuiz(doc)}
-                          disabled={generatingQuiz === doc.id}
-                        >
-                          <Sparkles className="h-3 w-3 mr-1" />
-                          {generatingQuiz === doc.id ? '생성중...' : '퀴즈생성'}
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleDelete(doc)}
-                        >
-                          <Trash2 className="h-3 w-3" />
+                          <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
                     </TableCell>
@@ -531,6 +615,41 @@ const AdminDocuments = () => {
             </Table>
           </Card>
         )}
+
+        {/* Quiz Generation Progress Modal */}
+        <QuizGenerationProgressModal
+          open={progressModalOpen}
+          currentStep={generationStep}
+          progress={generationProgress}
+        />
+
+        {/* Quiz Generation Modal */}
+        {currentDocForQuiz && (
+          <QuizGenerationModal
+            open={quizModalOpen}
+            onClose={() => setQuizModalOpen(false)}
+            documentId={currentDocForQuiz.id}
+            documentTitle={currentDocForQuiz.title}
+            companyId={companyId}
+            userId={user?.id || ""}
+            extractedText={extractedText}
+            onComplete={() => {
+              setQuizModalOpen(false);
+              setCurrentDocForQuiz(null);
+              setExtractedText("");
+              fetchDocuments();
+            }}
+          />
+        )}
+
+        {/* Delete Confirmation Dialog */}
+        <DeleteDocumentDialog
+          open={deleteDialogOpen}
+          onOpenChange={setDeleteDialogOpen}
+          documentTitle={documentToDelete?.title || ""}
+          hasQuizzes={documentToDelete?.has_quiz || false}
+          onConfirm={handleDeleteConfirm}
+        />
 
         <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
           <DialogContent className="sm:max-w-[600px]">
