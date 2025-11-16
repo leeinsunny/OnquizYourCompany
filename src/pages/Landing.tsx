@@ -49,10 +49,10 @@ const Landing = () => {
   ];
 
   const benefits = [
-    "온보딩 시간을 50% 단축",
-    "학습 효율성 3배 향상",
-    "관리자 업무 부담 감소",
-    "체계적인 지식 전달"
+    "준비 시간 단축",
+    "자료 표준화",
+    "진행 상황 추적",
+    "반복 업무 감소"
   ];
 
   return (
@@ -80,19 +80,19 @@ const Landing = () => {
         <div className="mx-auto flex max-w-5xl flex-col items-center gap-8 text-center">
           <div className="inline-flex items-center rounded-full border px-4 py-1.5 text-sm">
             <Zap className="mr-2 h-4 w-4 text-primary" />
-            <span>AI 기반 온보딩 솔루션</span>
+            <span>온보딩 자동화 플랫폼</span>
           </div>
           <h1 className="text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl lg:text-7xl">
-            신입사원 온보딩을
+            반복되는 온보딩 업무,
             <br />
             <span className="bg-gradient-hero bg-clip-text text-transparent">
-              더 스마트하게
+              이제 자동으로
             </span>
           </h1>
           <p className="max-w-2xl text-lg text-muted-foreground md:text-xl">
-            OnQuiz는 AI를 활용해 기업의 온보딩 자료를 체계화하고
+            기존 교육 자료를 업로드하면 퀴즈가 자동으로 만들어집니다.
             <br className="hidden sm:inline" />
-            퀴즈를 자동 생성·관리하는 플랫폼입니다
+            신입사원 교육, 더 이상 처음부터 준비하지 마세요.
           </p>
           <div className="flex flex-col gap-4 sm:flex-row">
             <Button size="lg" onClick={() => navigate("/signup")} className="gap-2">
