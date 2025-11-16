@@ -248,10 +248,10 @@ const EmployeeDashboard = () => {
             <span className="text-lg font-bold">OnQuiz</span>
           </div>
           <nav className="hidden md:flex items-center gap-6">
-            <Button variant="ghost">홈</Button>
-            <Button variant="ghost">온보딩 자료</Button>
-            <Button variant="ghost">퀴즈</Button>
-            <Button variant="ghost">학습 현황</Button>
+            <Button variant="ghost" onClick={() => navigate('/employee/dashboard')}>홈</Button>
+            <Button variant="ghost" onClick={() => navigate('/employee/materials')}>온보딩 자료</Button>
+            <Button variant="ghost" onClick={() => navigate('/employee/quizzes')}>퀴즈</Button>
+            <Button variant="ghost" onClick={() => navigate('/employee/profile')}>내 프로필</Button>
           </nav>
           <Button variant="ghost" onClick={handleLogout}>
             <LogOut className="mr-2 h-4 w-4" />
