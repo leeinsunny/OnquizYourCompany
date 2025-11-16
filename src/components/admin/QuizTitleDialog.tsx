@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -20,6 +20,14 @@ export const QuizTitleDialog = ({
   isLoading = false
 }: QuizTitleDialogProps) => {
   const [title, setTitle] = useState(defaultTitle);
+
+  // Update title when prop changes or dialog opens
+  useEffect(() => {
+    if (open && defaultTitle) {
+      console.log('Setting title in dialog:', defaultTitle);
+      setTitle(defaultTitle);
+    }
+  }, [defaultTitle, open]);
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && !isLoading && onCancel()}>
