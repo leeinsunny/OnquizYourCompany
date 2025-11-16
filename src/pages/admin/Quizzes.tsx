@@ -34,13 +34,25 @@ const AdminQuizzes = () => {
   }, []);
 
   const fetchQuizzes = async () => {
-    const { data: profile } = await supabase
+    const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('company_id')
       .eq('id', user?.id)
       .single();
 
-    if (!profile) return;
+    if (profileError) {
+      console.error('Error fetching profile:', profileError);
+      setLoading(false);
+      return;
+    }
+
+    if (!profile) {
+      console.error('No profile found');
+      setLoading(false);
+      return;
+    }
+
+    console.log('Fetching quizzes for company:', profile.company_id);
 
     const { data, error } = await supabase
       .from('quizzes')
@@ -52,7 +64,11 @@ const AdminQuizzes = () => {
       .eq('company_id', profile.company_id)
       .order('created_at', { ascending: false });
 
-    if (!error && data) {
+    if (error) {
+      console.error('Error fetching quizzes:', error);
+      toast.error('퀴즈를 불러오는 중 오류가 발생했습니다');
+    } else if (data) {
+      console.log('Fetched quizzes:', data);
       setQuizzes(data);
     }
     setLoading(false);
