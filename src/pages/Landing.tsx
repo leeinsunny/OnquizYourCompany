@@ -84,12 +84,12 @@ const Landing = () => {
 
       {/* Hero Section */}
       <section className="container pt-24 pb-16 md:pt-32 md:pb-20 relative">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-secondary/10 blur-3xl -z-10" />
-        <div className="mx-auto flex max-w-3xl flex-col items-center gap-6 text-center">
-          <h1 className="text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl bg-gradient-to-br from-foreground to-foreground/70 bg-clip-text">
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-primary/5 to-secondary/20 -z-10 rounded-3xl" />
+        <div className="mx-auto flex max-w-3xl flex-col items-center gap-8 text-center bg-gradient-to-br from-background/80 to-background/60 backdrop-blur-sm rounded-3xl p-12 border border-border/50 shadow-2xl">
+          <h1 className="text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl bg-gradient-to-br from-foreground to-foreground/70 bg-clip-text leading-relaxed">
             번거로웠던 우리의 온보딩,<br></br> 이제 효율과 효과가 좋아집니다
           </h1>
-          <p className="max-w-xl text-lg text-muted-foreground">
+          <p className="max-w-xl text-lg text-muted-foreground leading-relaxed">
             기존 교육 자료만 있으면 됩니다. <br></br> 퀴즈 생성부터 진행 추적까지 자동으로 처리해보세요.
           </p>
           <Button
