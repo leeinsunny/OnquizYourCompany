@@ -28,7 +28,7 @@ const EmployeeLayout = ({ children }: EmployeeLayoutProps) => {
                 <div className="container py-2 flex items-center gap-4">
                   <SidebarTrigger />
                   <div className="flex items-center gap-2">
-                    <div className="h-6 w-6 rounded bg-gradient-to-br from-primary to-secondary flex-shrink-0" />
+                    <div className="h-6 w-6 rounded-2xl bg-gradient-to-br from-primary to-secondary flex-shrink-0" />
                     <span className="text-lg font-bold">OnQuiz</span>
                   </div>
                 </div>
