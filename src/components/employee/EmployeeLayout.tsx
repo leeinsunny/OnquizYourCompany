@@ -18,19 +18,19 @@ const EmployeeLayout = ({ children }: EmployeeLayoutProps) => {
 
   return (
     <div className="min-h-screen bg-background">
-
       {/* Sidebar Layout */}
       <div className="flex">
-        {/* Provider wraps the layout to enable collapsing sidebar */}
-        {/* We inline import to avoid circular deps */}
-        {/* eslint-disable-next-line @typescript-eslint/no-var-requires */}
         <SidebarProvider open={open} onOpenChange={setOpen}>
           <div className="w-full flex">
             <EmployeeSidebar />
             <main className="flex-1">
               <div className="border-b bg-background">
-                <div className="container py-2">
+                <div className="container py-2 flex items-center gap-4">
                   <SidebarTrigger />
+                  <div className="flex items-center gap-2">
+                    <div className="h-6 w-6 rounded bg-gradient-to-br from-primary to-secondary flex-shrink-0" />
+                    <span className="text-lg font-bold">OnQuiz</span>
+                  </div>
                 </div>
               </div>
               <div className="container py-6">{children}</div>

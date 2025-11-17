@@ -128,10 +128,10 @@ const Signup = () => {
 
         <div className="mx-auto w-full max-w-md">
           <div className="mb-8 text-center">
-            <div className="mx-auto mb-4 h-12 w-12 rounded-lg bg-gradient-hero" />
+            <div className="mx-auto mb-4 h-12 w-12 rounded-lg bg-gradient-to-br from-primary to-secondary" />
             <h1 className="text-2xl font-bold">OnQuiz 회원가입</h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              AI 기반 온보딩 솔루션을 시작하세요
+              새로운 계정을 만들어 시작하세요
             </p>
           </div>
 
