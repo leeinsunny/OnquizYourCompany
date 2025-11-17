@@ -65,7 +65,7 @@ const Login = () => {
 
         <div className="mx-auto w-full max-w-md">
           <div className="mb-8 text-center">
-            <div className="mx-auto mb-4 h-12 w-12 rounded-lg bg-gradient-hero" />
+            <div className="mx-auto mb-4 h-12 w-12 rounded-2xl bg-gradient-to-br from-primary to-secondary" />
             <h1 className="text-2xl font-bold">OnQuiz 로그인</h1>
             <p className="mt-2 text-sm text-muted-foreground">
               계정에 로그인하여 시작하세요

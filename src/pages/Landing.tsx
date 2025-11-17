@@ -67,6 +67,7 @@ const Landing = () => {
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container flex h-16 items-center justify-between">
           <div className="flex items-center gap-2">
+            <div className="h-6 w-6 rounded-2xl bg-gradient-to-br from-primary to-secondary" />
             <span className="text-2xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
               OnQuiz
             </span>
