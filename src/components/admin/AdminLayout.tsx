@@ -113,8 +113,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
         <Sidebar collapsible="icon">
           <SidebarHeader className="border-b">
             <div className="flex items-center gap-2 px-2 py-4">
-              <div className="h-8 w-8 rounded-2xl bg-gradient-to-br from-primary to-secondary flex-shrink-0" />
-              <span className="text-lg font-bold group-data-[collapsible=icon]:hidden">OnQuiz</span>
+              <span className="text-lg font-bold">OnQuiz</span>
             </div>
           </SidebarHeader>
 
