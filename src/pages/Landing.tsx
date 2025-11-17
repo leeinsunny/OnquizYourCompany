@@ -83,17 +83,19 @@ const Landing = () => {
       </header>
 
       {/* Hero Section */}
-      <section className="container pt-24 pb-16 md:pt-32 md:pb-20 relative">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-primary/5 to-secondary/20 -z-10 rounded-3xl" />
-        <div className="mx-auto flex max-w-3xl flex-col items-center gap-8 text-center bg-gradient-to-br from-background/80 to-background/60 backdrop-blur-sm rounded-3xl p-12 border border-border/50 shadow-2xl">
-          <h1 className="text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl bg-gradient-to-br from-foreground to-foreground/70 bg-clip-text leading-relaxed">
-            번거로웠던 우리의 온보딩,<br></br> 이제 효율과 효과가 좋아집니다
+      <section className="pt-24 pb-16 md:pt-32 md:pb-20 relative bg-gradient-to-br from-primary via-primary/90 to-secondary">
+        <div className="container mx-auto flex max-w-4xl flex-col items-center gap-8 text-center px-4">
+          <h1 className="text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl text-primary-foreground leading-relaxed">
+            번거로웠던 우리의 온보딩,<br />
+            이제 효율과 효과가 좋아집니다
           </h1>
-          <p className="max-w-xl text-lg text-muted-foreground leading-relaxed">
-            기존 교육 자료만 있으면 됩니다. <br></br> 퀴즈 생성부터 진행 추적까지 자동으로 처리해보세요.
+          <p className="max-w-2xl text-base sm:text-lg text-primary-foreground/90 leading-relaxed">
+            기존 교육 자료만 있으면 됩니다.<br />
+            퀴즈 생성부터 진행 추적까지 자동으로 처리해보세요.
           </p>
           <Button
             size="lg"
+            variant="secondary"
             onClick={() => navigate("/login")}
             className="shadow-lg hover:shadow-xl transition-all hover:scale-105"
           >
