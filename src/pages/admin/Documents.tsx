@@ -454,7 +454,7 @@ const AdminDocuments = () => {
     setTitleInputOpen(true);
   };
 
-  const handleTitleConfirm = async (title: string) => {
+  const handleTitleConfirm = async (title: string, category: any) => {
     setQuizTitle(title);
     setIsSaving(true);
     setFlowStep('saving');
@@ -462,6 +462,23 @@ const AdminDocuments = () => {
 
     try {
       if (!currentDocForQuiz || !user) throw new Error("필수 정보가 없습니다");
+
+      // Update document with category information if provided
+      if (category) {
+        const { error: updateError } = await supabase
+          .from('documents')
+          .update({
+            category_level1: category.levels.level1,
+            category_level2: category.levels.level2,
+            category_level3: category.levels.level3,
+            category_slug_path: category.slugPath,
+          })
+          .eq('id', currentDocForQuiz.id);
+
+        if (updateError) {
+          console.error('Failed to update document category:', updateError);
+        }
+      }
 
       // Create or get category
       let categoryId = null;
@@ -478,7 +495,7 @@ const AdminDocuments = () => {
         const { data: newCategory, error: categoryError } = await supabase
           .from('categories')
           .insert({
-            name: title,
+            name: category ? category.displayPath : title,
             company_id: companyId,
             document_id: currentDocForQuiz.id
           })
@@ -868,6 +885,9 @@ const AdminDocuments = () => {
         <QuizTitleDialog
           open={titleInputOpen}
           defaultTitle={quizTitle}
+          documentId={currentDocForQuiz?.id || ""}
+          documentTitle={currentDocForQuiz?.title || ""}
+          documentText={extractedText || ""}
           onConfirm={handleTitleConfirm}
           onCancel={handleCancelFlow}
           isLoading={isSaving}

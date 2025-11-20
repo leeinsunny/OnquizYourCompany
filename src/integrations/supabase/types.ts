@@ -127,6 +127,10 @@ export type Database = {
       }
       documents: {
         Row: {
+          category_level1: string | null
+          category_level2: string | null
+          category_level3: string | null
+          category_slug_path: string[] | null
           company_id: string
           created_at: string | null
           file_size: number | null
@@ -140,6 +144,10 @@ export type Database = {
           uploaded_by: string
         }
         Insert: {
+          category_level1?: string | null
+          category_level2?: string | null
+          category_level3?: string | null
+          category_slug_path?: string[] | null
           company_id: string
           created_at?: string | null
           file_size?: number | null
@@ -153,6 +161,10 @@ export type Database = {
           uploaded_by: string
         }
         Update: {
+          category_level1?: string | null
+          category_level2?: string | null
+          category_level3?: string | null
+          category_slug_path?: string[] | null
           company_id?: string
           created_at?: string | null
           file_size?: number | null
