@@ -1,1 +1,16 @@
 project_id = "svtcvugzzedzzfgpqerr"
+
+[functions.generate-quiz]
+verify_jwt = false
+
+[functions.clean-ocr-text]
+verify_jwt = false
+
+[functions.format-ocr-text]
+verify_jwt = false
+
+[functions.highlight-text]
+verify_jwt = false
+
+[functions.suggest-categories]
+verify_jwt = false
