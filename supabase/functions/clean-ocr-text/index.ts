@@ -59,63 +59,93 @@ serve(async (req: Request): Promise<Response> => {
     console.log(`Preprocessed length: ${preprocessed.length}`);
 
     const systemPrompt = `
-당신은 '기업 온보딩 문서 분석 전문 AI'입니다.
-당신의 유일한 역할은 온보딩 문서의 각 섹션이 제목과 본문이 서로 잘 맞는지 진단하고,
-그 결과를 JSON 배열로 반환하는 것입니다.
+당신은 '기업 온보딩 문서 구조화 전문 AI'입니다.
+당신의 역할은 **온보딩 문서를 섹션 단위로 나누고, 각 섹션에 번호(id)와 제목(title)을 붙여 JSON으로 반환하는 것**입니다.
 
-당신은 문서를 수정하거나, 재구성하거나, 번호를 재부여해서는 절대 안 됩니다.
+중요:
+- 원문을 그대로 복붙해서 다시 출력하지 마십시오.
+- 최종 출력은 반드시 JSON 배열 하나여야 합니다.
+- JSON 바깥의 텍스트(설명, 주석, 마크다운 등)는 절대 출력하지 마십시오.
 
 ------------------------------------------------------------
 📌 입력 형식 (user message)
 ------------------------------------------------------------
-사용자는 온보딩 문서를 다음과 같은 형태로 제공합니다:
+사용자는 온보딩 문서를 "순수 텍스트"로 제공합니다.
+문서에는 다음과 같은 경우가 섞여 있을 수 있습니다:
 
-1-1. 섹션 제목
-내용: (카테고리) ...본문 시작...
+1) 번호와 제목이 이미 있는 경우
+   예:
+   "1-1. 보안 규정 안내
+    내용: (IT/보안) ..."
 
-여기에 본문 텍스트가 이어지고,
+2) 번호/제목이 전혀 없는 경우
+   예:
+   "회사는 신규 입사자에게 기본 장비를 제공하며...
+    사내 복지 제도에는 식대 지원, 교육비 지원...
+    근태 관리는 Google Calendar 기반으로...
+    보안 규정에 따라 사내 시스템 접속 시 MFA 인증..."
 
-1-2. 다른 섹션 제목
-내용: (카테고리) ...본문 시작...
-
-이런 식으로 여러 섹션이 이어질 수 있습니다.
-
-번호는 "1-1.", "2-3.", "3-1."과 같이 앞에 위치하며,
-그 다음 줄 또는 같은 줄에 제목이 오고,
-그 아래 "내용:"으로 시작하는 본문 블록이 온다고 가정하십시오.
+3) 일부만 번호/제목이 있고 일부는 없는 혼합 형태
 
 ------------------------------------------------------------
-📌 당신이 해야 할 작업
+📌 섹션 분할 규칙
 ------------------------------------------------------------
-1) 문서를 섹션 단위로 정확히 분할합니다.
-   - id: "1-1", "1-2", "3-1" 등 번호 부분 (점(.)은 제외)
-   - title: 번호 뒤에 오는 제목 전체
-   - body: 해당 섹션의 본문
-           (다음 번호/제목이 나오기 전까지의 텍스트 전체, "내용:" 라인은 포함)
 
-2) 각 섹션에 대해 다음 항목을 분석합니다:
+1) 먼저, 번호가 명시된 헤더 패턴을 찾습니다.
+   - 예: "1-1.", "2-3.", "3.", "10-2." 등
+   - 번호 패턴이 있는 줄은 "새 섹션의 시작"으로 간주합니다.
+   - 이 경우:
+     - id: "1-1" (점(.) 제거)
+     - title: 번호 뒤에 나오는 문자열 전체 (양쪽 공백 제거)
+     - body: 그 다음 줄부터, 다음 번호가 나오기 전까지의 내용 전체
 
-   - id: "1-1", "1-2", "3-1" 같은 섹션 번호
-   - title: 섹션 제목 (입력 그대로)
-   - body: 섹션 본문 (입력 그대로)
-   - summary: 본문 내용을 한 문장으로 요약 (한국어)
-   - title_body_match:
-       "high"   → 제목과 본문이 매우 잘 맞음  
-       "medium" → 일부 관련성은 있지만 살짝 어긋남  
-       "low"    → 제목과 본문이 본질적으로 일치하지 않음
-   - reason:
-       match 판정을 내린 이유를 한국어 한 줄로 설명
-   - suggested_fixed_title:
-       title_body_match가 "low"일 때만,
-       본문 내용에 더 잘 맞는 새로운 제목을 한 줄로 제안.
-       "medium" 또는 "high"일 경우에는 null로 설정.
+2) 만약 문서 전체를 보았을 때, 이런 번호 패턴이 **하나도 없다면**,
+   즉, "완전히 번호/제목 없는 온보딩 본문"이라면:
 
-3) 문서를 '수정'하지 말고, '재구성'하지 말고,
-   오직 분석 결과를 JSON으로만 출력합니다.
+   - 연속된 문단/주제 단위로 섹션을 나누십시오.
+   - 최소 기준:
+     - 빈 줄(공백 줄)로 구분된 블록 → 하나의 섹션
+     - 빈 줄이 거의 없더라도, 의미상 주제가 명확히 바뀌는 부분이 있으면 섹션을 나눌 수 있음.
 
-4) JSON 이외의 텍스트는 출력하지 마십시오.
-   - 설명문, 서론, 주석, 마크다운, 코드블록, 자연어 설명 모두 금지
-   - 출력 전체가 유효한 JSON 배열이어야 합니다.
+   - 이 경우 섹션 id는 다음과 같이 생성합니다:
+     - 첫 번째 섹션: "1-1"
+     - 두 번째 섹션: "1-2"
+     - 세 번째 섹션: "1-3"
+     - ... 이런 식으로 순차 번호를 부여합니다.
+
+   - title 생성 규칙:
+     - 섹션의 첫 문장을 기반으로 한 줄 요약 제목을 만듭니다.
+     - 예: 장비 지급 내용 → "신규 입사자 장비 지급 안내"
+           복지 제도 내용 → "사내 복지 제도 요약"
+           근태/캘린더 내용 → "근태 관리 및 캘린더 기록"
+           보안/MFA 내용 → "사내 시스템 보안 및 MFA 정책"
+
+------------------------------------------------------------
+📌 JSON 필드 정의
+------------------------------------------------------------
+
+각 섹션은 아래 구조를 갖습니다:
+
+{
+  "id": "1-1",
+  "title": "섹션 제목 (한 줄)",
+  "body": "이 섹션에 해당하는 원문 본문 전체"
+}
+
+세부 규칙:
+- id:
+  - 이미 번호가 있는 경우 → 기존 번호를 기반으로 "1-1" 형식으로 사용 (점 제거).
+  - 번호가 전혀 없는 문서일 경우 → "1-1", "1-2", "1-3" ... 순차 생성.
+- title:
+  - 번호/제목이 있는 문서:
+    - 번호 줄에서 번호 뒤에 오는 문자열 전체를 제목으로 사용.
+    - 예: "1-1. 보안 규정 안내" → title: "보안 규정 안내"
+  - 번호/제목이 없는 문서:
+    - 해당 섹션 본문을 읽고, 의미를 잘 대표하는 핵심 제목을 한 줄로 새로 생성.
+- body:
+  - 해당 섹션에 속하는 본문 전체를 그대로 넣습니다.
+  - 다만 "1-1. 제목..." 같은 헤더 줄 자체는 body에서 제외합니다.
+  - body 안의 문장은 수정하지 않습니다 (의미 변경 X).
 
 ------------------------------------------------------------
 📌 출력 형식 (반드시 이 JSON만)
@@ -124,28 +154,31 @@ serve(async (req: Request): Promise<Response> => {
 [
   {
     "id": "1-1",
-    "title": "원래 제목 그대로",
-    "body": "원래 본문 그대로",
-    "summary": "본문 요약 한 줄",
-    "title_body_match": "high" | "medium" | "low",
-    "reason": "판단 이유 한 줄",
-    "suggested_fixed_title": "본문 기반 대체 제목 또는 null"
+    "title": "섹션 제목",
+    "body": "섹션 본문 전체"
   },
+  {
+    "id": "1-2",
+    "title": "다음 섹션 제목",
+    "body": "다음 섹션 본문 전체"
+  }
   ...
 ]
+
+- JSON 바깥에 설명/텍스트를 절대 추가하지 마십시오.
+- 코드블록(\`\`\`)으로 감싸지 마십시오.
+- 유효한 JSON 배열이 아니면 안 됩니다.
 
 ------------------------------------------------------------
 📌 절대 금지 규칙
 ------------------------------------------------------------
-- 제목을 새로 생성하여 원본을 대체하지 마십시오.
-- 번호를 새로 만들거나 변경하지 마십시오.
-- 문서 구조(섹션 순서)를 재배열하지 마십시오.
-- 카테고리 내용을 생성하거나 수정하지 마십시오.
-- 본문 내용을 삭제하거나 수정하지 마십시오.
-- JSON 앞뒤에 다른 텍스트를 추가하지 마십시오.
-- JSON을 코드블록(\`\`\`) 안에 넣지 마십시오.
+- 원문 전체를 그대로 다시 출력하지 마십시오.
+- JSON 외의 텍스트를 출력하지 마십시오.
+- 섹션 body 내용을 임의로 삭제하거나 축약하지 마십시오.
+- 섹션 순서를 임의로 섞지 마십시오.
 
-당신의 역할은 오직 "진단 + JSON 표준화"입니다.
+당신의 역할은 오직
+"온보딩 텍스트 → 섹션 단위 JSON(id/title/body)" 변환입니다.
     `;
 
     console.log(`Analyzing OCR text with system prompt (len=${systemPrompt.length})`);
@@ -185,60 +218,38 @@ serve(async (req: Request): Promise<Response> => {
       throw new Error("No content in AI response");
     }
 
-    let parsed: any[] | null = null;
+    let sections: any[] | null = null;
     try {
-      parsed = JSON.parse(aiContent);
+      sections = JSON.parse(aiContent);
     } catch (e) {
       console.error("Failed to parse AI JSON:", e, aiContent);
     }
 
-    let extraNote = "";
-
-    if (parsed && Array.isArray(parsed)) {
-      const mismatches = parsed.filter((s) => s.title_body_match === "low");
-
-      if (mismatches.length > 0) {
-        const lines: string[] = [];
-        lines.push("");
-        lines.push("");
-        lines.push("기타) 제목과 본문이 일치하지 않을 수 있는 섹션:");
-        lines.push(
-          "(아래 섹션들은 제목과 본문 내용이 서로 안 맞을 수 있으니, 검토 후 제목을 수정하거나 재배치해주세요.)",
-        );
-        lines.push("");
-
-        for (const s of mismatches) {
-          const id = s.id ?? "(id 없음)";
-          const title = s.title ?? "(제목 없음)";
-          const summary = s.summary ?? "";
-          const reason = s.reason ?? "";
-          const suggested = s.suggested_fixed_title;
-
-          let line = `- 섹션 ${id} "${title}"`;
-
-          if (suggested && typeof suggested === "string") {
-            line += ` → 제안 제목: "${suggested}"`;
-          }
-
-          if (reason) {
-            line += ` (사유: ${reason})`;
-          }
-
-          if (summary) {
-            line += ` / 본문 요약: ${summary}`;
-          }
-
-          lines.push(line);
-        }
-
-        extraNote = lines.join("\n");
-      }
+    // 섹션 파싱에 실패하면, 그냥 전처리된 원문을 그대로 반환 (fallback)
+    if (!sections || !Array.isArray(sections) || sections.length === 0) {
+      console.warn("AI returned no sections, fallback to preprocessed text");
+      return new Response(JSON.stringify({ cleanedText: preprocessed }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
     }
 
-    // 최종 텍스트:
-    // 1) 전처리된 OCR 원문 (원본 구조 그대로)
-    // 2) 맨 아래에 "기타)" 블록 (있으면)
-    const finalText = extraNote.trim().length > 0 ? `${preprocessed}\n${extraNote}` : preprocessed;
+    // 섹션 JSON을 이용해서 최종 텍스트 재구성
+    const lines: string[] = [];
+
+    for (const s of sections) {
+      const id = (s.id ?? "").toString().trim() || "(id 없음)";
+      const title = (s.title ?? "").toString().trim() || "제목 없음";
+      const body = (s.body ?? "").toString().trim();
+
+      lines.push(`${id}. ${title}`);
+      if (body) {
+        lines.push(body);
+      }
+      lines.push(""); // 섹션 간 빈 줄
+    }
+
+    const finalText = lines.join("\n").trim();
 
     return new Response(JSON.stringify({ cleanedText: finalText }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
