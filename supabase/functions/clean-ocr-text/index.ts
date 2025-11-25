@@ -1,4 +1,4 @@
-// ocr-analyze-sections.ts (기존 파일명 그대로 써도 됨)
+// ocr-analyze-sections.ts
 
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -125,7 +125,7 @@ serve(async (req: Request): Promise<Response> => {
     "title": "원래 제목 그대로",
     "body": "원래 본문 그대로",
     "summary": "본문 요약 한 줄",
-    "title_body_match": "high" | "medium" | "low",
+    "title_body_match": "high | medium | low",
     "reason": "판단 이유 한 줄",
     "suggested_fixed_title": "본문 기반 대체 제목 또는 null"
   },
@@ -144,7 +144,7 @@ serve(async (req: Request): Promise<Response> => {
 - JSON을 코드블록(\`\`\`) 안에 넣지 마십시오.
 
 당신의 역할은 오직 "진단 + JSON 표준화"입니다.
-`;
+    `;
 
     console.log(`Analyzing OCR text with system prompt (len=${systemPrompt.length})`);
 
@@ -163,7 +163,7 @@ serve(async (req: Request): Promise<Response> => {
           },
           {
             role: "user",
-            // ⚠️ 구조 정보를 살린 preprocessed 사용
+            // 구조 정보를 살린 preprocessed 사용
             content: preprocessed,
           },
         ],
@@ -177,14 +177,61 @@ serve(async (req: Request): Promise<Response> => {
     }
 
     const aiResponse = await response.json();
-    const cleanedText = aiResponse?.choices?.[0]?.message?.content;
+    const aiContent = aiResponse?.choices?.[0]?.message?.content;
 
-    if (!cleanedText) {
+    if (!aiContent) {
       throw new Error("No content in AI response");
     }
 
-    // 프론트/백엔드에서 cleanedText를 JSON.parse 해서 사용하면 됨
-    return new Response(JSON.stringify({ cleanedText }), {
+    let parsed: any[] | null = null;
+    try {
+      parsed = JSON.parse(aiContent);
+    } catch (e) {
+      console.error("Failed to parse AI JSON:", e, aiContent);
+    }
+
+    let extraNote = "";
+
+    if (parsed && Array.isArray(parsed)) {
+      const mismatches = parsed.filter((s) => s.title_body_match === "low");
+
+      if (mismatches.length > 0) {
+        const lines: string[] = [];
+        lines.push("");
+        lines.push("");
+        lines.push("기타) 제목과 본문이 일치하지 않을 수 있는 섹션:");
+        lines.push("(아래 섹션들은 제목과 본문 내용이 서로 안 맞을 수 있으니, 검토 후 수정해주세요.)");
+        lines.push("");
+
+        for (const s of mismatches) {
+          const id = s.id ?? "(id 없음)";
+          const title = s.title ?? "(제목 없음)";
+          const reason = s.reason ?? "";
+          const suggested = s.suggested_fixed_title;
+
+          let line = `- 섹션 ${id} "${title}"`;
+
+          if (suggested && typeof suggested === "string") {
+            line += ` → 제안 제목: "${suggested}"`;
+          }
+
+          if (reason) {
+            line += ` (사유: ${reason})`;
+          }
+
+          lines.push(line);
+        }
+
+        extraNote = lines.join("\n");
+      }
+    }
+
+    // 최종 텍스트:
+    // 1) 전처리된 OCR 원문
+    // 2) 맨 아래에 "기타)" 블록 (있으면)
+    const finalText = extraNote.trim().length > 0 ? `${preprocessed}\n${extraNote}` : preprocessed;
+
+    return new Response(JSON.stringify({ cleanedText: finalText }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });
