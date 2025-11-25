@@ -71,25 +71,27 @@ serve(async (req: Request): Promise<Response> => {
 사용자는 온보딩 문서를 다음과 같은 형태로 제공합니다:
 
 1-1. 섹션 제목
-내용: (카테고리)
-여기에 본문 텍스트...
+내용: (카테고리) ...본문 시작...
+
+여기에 본문 텍스트가 이어지고,
 
 1-2. 다른 섹션 제목
-내용: (카테고리)
-여기에 본문 텍스트...
+내용: (카테고리) ...본문 시작...
 
 이런 식으로 여러 섹션이 이어질 수 있습니다.
 
 번호는 "1-1.", "2-3.", "3-1."과 같이 앞에 위치하며,
-그 다음 줄에 제목, 그 아래 "내용:"으로 시작하는 본문 블록이 온다고 가정하십시오.
+그 다음 줄 또는 같은 줄에 제목이 오고,
+그 아래 "내용:"으로 시작하는 본문 블록이 온다고 가정하십시오.
 
 ------------------------------------------------------------
 📌 당신이 해야 할 작업
 ------------------------------------------------------------
 1) 문서를 섹션 단위로 정확히 분할합니다.
-   - id: "1-1", "1-2", "3-1" 등 번호 부분
-   - title: 번호 뒤에 오는 제목 줄 전체
-   - body: 해당 섹션의 본문 (다음 번호/제목이 나오기 전까지의 텍스트 전체)
+   - id: "1-1", "1-2", "3-1" 등 번호 부분 (점(.)은 제외)
+   - title: 번호 뒤에 오는 제목 전체
+   - body: 해당 섹션의 본문
+           (다음 번호/제목이 나오기 전까지의 텍스트 전체, "내용:" 라인은 포함)
 
 2) 각 섹션에 대해 다음 항목을 분석합니다:
 
@@ -125,7 +127,7 @@ serve(async (req: Request): Promise<Response> => {
     "title": "원래 제목 그대로",
     "body": "원래 본문 그대로",
     "summary": "본문 요약 한 줄",
-    "title_body_match": "high | medium | low",
+    "title_body_match": "high" | "medium" | "low",
     "reason": "판단 이유 한 줄",
     "suggested_fixed_title": "본문 기반 대체 제목 또는 null"
   },
@@ -200,12 +202,15 @@ serve(async (req: Request): Promise<Response> => {
         lines.push("");
         lines.push("");
         lines.push("기타) 제목과 본문이 일치하지 않을 수 있는 섹션:");
-        lines.push("(아래 섹션들은 제목과 본문 내용이 서로 안 맞을 수 있으니, 검토 후 수정해주세요.)");
+        lines.push(
+          "(아래 섹션들은 제목과 본문 내용이 서로 안 맞을 수 있으니, 검토 후 제목을 수정하거나 재배치해주세요.)",
+        );
         lines.push("");
 
         for (const s of mismatches) {
           const id = s.id ?? "(id 없음)";
           const title = s.title ?? "(제목 없음)";
+          const summary = s.summary ?? "";
           const reason = s.reason ?? "";
           const suggested = s.suggested_fixed_title;
 
@@ -219,6 +224,10 @@ serve(async (req: Request): Promise<Response> => {
             line += ` (사유: ${reason})`;
           }
 
+          if (summary) {
+            line += ` / 본문 요약: ${summary}`;
+          }
+
           lines.push(line);
         }
 
@@ -227,7 +236,7 @@ serve(async (req: Request): Promise<Response> => {
     }
 
     // 최종 텍스트:
-    // 1) 전처리된 OCR 원문
+    // 1) 전처리된 OCR 원문 (원본 구조 그대로)
     // 2) 맨 아래에 "기타)" 블록 (있으면)
     const finalText = extraNote.trim().length > 0 ? `${preprocessed}\n${extraNote}` : preprocessed;
 
