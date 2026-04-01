@@ -327,6 +327,7 @@ const EmployeeDashboard = () => {
                   className="pointer-events-auto"
                   modifiers={{
                     hasDue: dueDates,
+                    hasNote: noteDates,
                   }}
                   modifiersStyles={{
                     hasDue: {
@@ -335,10 +336,20 @@ const EmployeeDashboard = () => {
                       textDecorationColor: "hsl(var(--primary))",
                       textUnderlineOffset: "4px",
                     },
+                    hasNote: {
+                      backgroundColor: "hsl(var(--accent) / 0.2)",
+                      borderRadius: "50%",
+                    },
                   }}
                 />
               </CardContent>
             </Card>
+
+            {/* Calendar Notes */}
+            <CalendarNotes
+              selectedDate={selectedDate}
+              onNoteDatesChange={setNoteDates}
+            />
 
             {/* Stats Summary */}
             <Card>
