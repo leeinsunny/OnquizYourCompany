@@ -19,6 +19,7 @@ import { useToast } from "@/hooks/use-toast";
 import EmployeeLayout from "@/components/employee/EmployeeLayout";
 import { format, isSameDay } from "date-fns";
 import { ko } from "date-fns/locale";
+import CalendarNotes from "@/components/employee/CalendarNotes";
 
 interface QuizItem {
   id: string;
