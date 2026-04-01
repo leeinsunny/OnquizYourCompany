@@ -121,7 +121,7 @@ const EmployeeDashboard = () => {
   };
 
   const handleStartQuiz = (quizId: string) => {
-    navigate(`/employee/quiz-take/${quizId}`);
+    navigate(`/employee/quiz/${quizId}`);
   };
 
   const getStatusIcon = (status: QuizItem['status']) => {
