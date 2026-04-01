@@ -1,26 +1,32 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import { Calendar } from "@/components/ui/calendar";
 import { useNavigate } from "react-router-dom";
 import {
   PlayCircle,
   CheckCircle2,
   Clock,
-  TrendingUp
+  CalendarDays,
+  BookOpen,
+  ChevronRight,
+  Sparkles,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import EmployeeLayout from "@/components/employee/EmployeeLayout";
+import { format, isSameDay } from "date-fns";
+import { ko } from "date-fns/locale";
 
 interface QuizItem {
   id: string;
   title: string;
-  status: 'not_started' | 'in_progress' | 'completed';
+  status: "not_started" | "in_progress" | "completed";
   score: number | null;
   estimatedTime: string;
+  dueDate: string | null;
 }
 
 const EmployeeDashboard = () => {
@@ -28,49 +34,54 @@ const EmployeeDashboard = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
-  const [overallProgress, setOverallProgress] = useState(0);
-  const [nextQuiz, setNextQuiz] = useState<QuizItem | null>(null);
   const [quizzes, setQuizzes] = useState<QuizItem[]>([]);
-  const [recentCompleted, setRecentCompleted] = useState<any[]>([]);
-  const [feedback, setFeedback] = useState<string>("");
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [profileName, setProfileName] = useState("");
 
   useEffect(() => {
     if (user) {
       fetchDashboardData();
+      fetchProfile();
     }
   }, [user]);
+
+  const fetchProfile = async () => {
+    const { data } = await supabase
+      .from("profiles")
+      .select("name")
+      .eq("id", user!.id)
+      .maybeSingle();
+    if (data) setProfileName(data.name);
+  };
 
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
 
       const { data: assignments } = await supabase
-        .from('quiz_assignments')
-        .select(`
-          quiz_id,
-          quiz:quizzes!inner(id, title)
-        `)
-        .eq('user_id', user!.id);
+        .from("quiz_assignments")
+        .select(`quiz_id, due_date, quiz:quizzes!inner(id, title)`)
+        .eq("user_id", user!.id);
 
       const enrichedQuizzes = await Promise.all(
         (assignments || []).map(async (assignment: any) => {
           const { data: attempts } = await supabase
-            .from('quiz_attempts')
-            .select('status, score, percentage')
-            .eq('quiz_id', assignment.quiz_id)
-            .eq('user_id', user!.id)
-            .order('started_at', { ascending: false });
+            .from("quiz_attempts")
+            .select("status, score, percentage")
+            .eq("quiz_id", assignment.quiz_id)
+            .eq("user_id", user!.id)
+            .order("started_at", { ascending: false });
 
           const latestAttempt = attempts?.[0];
-          let status: QuizItem['status'] = 'not_started';
+          let status: QuizItem["status"] = "not_started";
           if (latestAttempt) {
-            status = latestAttempt.status === 'completed' ? 'completed' : 'in_progress';
+            status = latestAttempt.status === "completed" ? "completed" : "in_progress";
           }
 
           const { count } = await supabase
-            .from('quiz_questions')
-            .select('*', { count: 'exact', head: true })
-            .eq('quiz_id', assignment.quiz_id);
+            .from("quiz_questions")
+            .select("*", { count: "exact", head: true })
+            .eq("quiz_id", assignment.quiz_id);
 
           const estimatedTime = `${Math.max(10, (count || 0) * 2)}분`;
 
@@ -79,78 +90,94 @@ const EmployeeDashboard = () => {
             title: assignment.quiz.title,
             status,
             score: latestAttempt?.score || null,
-            estimatedTime
+            estimatedTime,
+            dueDate: assignment.due_date,
           };
         })
       );
 
       setQuizzes(enrichedQuizzes);
-
-      const completedCount = enrichedQuizzes.filter(q => q.status === 'completed').length;
-      const totalCount = enrichedQuizzes.length || 1;
-      const progress = Math.round((completedCount / totalCount) * 100);
-      setOverallProgress(progress);
-
-      const notStarted = enrichedQuizzes.find(q => q.status === 'not_started');
-      const inProgress = enrichedQuizzes.find(q => q.status === 'in_progress');
-      setNextQuiz(inProgress || notStarted || null);
-
-      const completed = enrichedQuizzes.filter(q => q.status === 'completed').slice(0, 3);
-      setRecentCompleted(completed);
-
-      if (completedCount > 0) {
-        const avgScore = completed.reduce((sum, q) => sum + (q.score || 0), 0) / completedCount;
-        if (avgScore < 75) {
-          setFeedback("복습을 권장합니다. 어려운 부분은 팀장님께 문의해 보세요.");
-        } else if (avgScore >= 90) {
-          setFeedback("훌륭합니다! 계속해서 좋은 성과를 유지하고 있습니다.");
-        } else {
-          setFeedback("잘하고 있습니다! 조금만 더 노력하면 더 좋은 결과를 얻을 수 있어요.");
-        }
-      }
     } catch (error) {
-      console.error('Error fetching dashboard data:', error);
+      console.error("Error fetching dashboard data:", error);
       toast({
         title: "오류",
         description: "데이터를 불러오는 중 문제가 발생했습니다.",
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
       setLoading(false);
     }
   };
 
+  const completedCount = quizzes.filter((q) => q.status === "completed").length;
+  const totalCount = quizzes.length || 1;
+  const overallProgress = Math.round((completedCount / totalCount) * 100);
+
+  const quizzesForSelectedDate = useMemo(() => {
+    if (!selectedDate) return quizzes;
+    return quizzes.filter((q) => {
+      if (!q.dueDate) return false;
+      return isSameDay(new Date(q.dueDate), selectedDate);
+    });
+  }, [quizzes, selectedDate]);
+
+  const dueDates = useMemo(() => {
+    return quizzes
+      .filter((q) => q.dueDate && q.status !== "completed")
+      .map((q) => new Date(q.dueDate!));
+  }, [quizzes]);
+
+  const nextQuiz = useMemo(() => {
+    const inProgress = quizzes.find((q) => q.status === "in_progress");
+    const notStarted = quizzes.find((q) => q.status === "not_started");
+    return inProgress || notStarted || null;
+  }, [quizzes]);
+
   const handleStartQuiz = (quizId: string) => {
     navigate(`/employee/quiz/${quizId}`);
   };
 
-  const getStatusIcon = (status: QuizItem['status']) => {
+  const getStatusBadge = (status: QuizItem["status"], score: number | null) => {
     switch (status) {
-      case 'completed':
-        return <CheckCircle2 className="h-5 w-5 text-green-600" />;
-      case 'in_progress':
-        return <PlayCircle className="h-5 w-5 text-blue-600" />;
+      case "completed":
+        return (
+          <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-0">
+            <CheckCircle2 className="h-3 w-3 mr-1" />
+            완료 {score !== null && `• ${score}점`}
+          </Badge>
+        );
+      case "in_progress":
+        return (
+          <Badge className="bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400 border-0">
+            <PlayCircle className="h-3 w-3 mr-1" />
+            진행 중
+          </Badge>
+        );
       default:
-        return <Clock className="h-5 w-5 text-gray-400" />;
+        return (
+          <Badge variant="secondary" className="border-0">
+            <Clock className="h-3 w-3 mr-1" />
+            시작 전
+          </Badge>
+        );
     }
   };
 
-  const getStatusText = (status: QuizItem['status']) => {
-    switch (status) {
-      case 'completed':
-        return '완료';
-      case 'in_progress':
-        return '진행 중';
-      default:
-        return '시작 전';
-    }
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return "좋은 아침이에요";
+    if (hour < 18) return "좋은 오후예요";
+    return "좋은 저녁이에요";
   };
 
   if (loading) {
     return (
       <EmployeeLayout>
         <div className="flex items-center justify-center h-64">
-          <p className="text-muted-foreground">로딩 중...</p>
+          <div className="flex flex-col items-center gap-3">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+            <p className="text-muted-foreground text-sm">대시보드 불러오는 중...</p>
+          </div>
         </div>
       </EmployeeLayout>
     );
@@ -158,168 +185,187 @@ const EmployeeDashboard = () => {
 
   return (
     <EmployeeLayout>
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="space-y-6 lg:col-span-2">
-          <Card className="border-primary/20">
-            <CardHeader>
-              <CardTitle>내 온보딩 진행률</CardTitle>
-              <CardDescription>
-                전체 {quizzes.length}개 중 {quizzes.filter(q => q.status === 'completed').length}개 완료
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center gap-6">
-                <div className="relative w-32 h-32">
-                  <svg className="w-full h-full -rotate-90">
-                    <circle
-                      cx="64"
-                      cy="64"
-                      r="60"
-                      stroke="currentColor"
-                      strokeWidth="8"
-                      fill="none"
-                      className="text-muted"
-                    />
-                    <circle
-                      cx="64"
-                      cy="64"
-                      r="60"
-                      stroke="currentColor"
-                      strokeWidth="8"
-                      fill="none"
-                      strokeDasharray={`${2 * Math.PI * 60}`}
-                      strokeDashoffset={`${2 * Math.PI * 60 * (1 - overallProgress / 100)}`}
-                      className="text-primary"
-                      strokeLinecap="round"
-                    />
-                  </svg>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <span className="text-3xl font-bold">{overallProgress}%</span>
-                  </div>
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm text-muted-foreground mb-2">
-                    {overallProgress >= 70 
-                      ? "거의 다 왔습니다! 마지막까지 화이팅!" 
-                      : "차근차근 진행해 나가고 있습니다."}
-                  </p>
-                  <Progress value={overallProgress} className="h-2" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
+      <div className="space-y-6">
+        {/* Greeting + Progress Header */}
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">
+              {getGreeting()}, {profileName || "사원"}님 👋
+            </h1>
+            <p className="text-muted-foreground mt-1">
+              온보딩 진행률{" "}
+              <span className="font-semibold text-foreground">{overallProgress}%</span> •{" "}
+              {quizzes.length}개 중 {completedCount}개 완료
+            </p>
+          </div>
           {nextQuiz && (
-            <Card className="border-primary/40 bg-primary/5">
-              <CardHeader>
-                <CardTitle>지금 해야 할 일</CardTitle>
-                <CardDescription>다음 단계</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div>
-                    <h3 className="text-xl font-semibold mb-2">{nextQuiz.title}</h3>
-                    <p className="text-sm text-muted-foreground">
-                      예상 소요 시간: {nextQuiz.estimatedTime}
-                    </p>
-                  </div>
-                  <Button 
-                    onClick={() => handleStartQuiz(nextQuiz.id)}
-                    size="lg"
-                    className="w-full"
-                  >
-                    <PlayCircle className="mr-2 h-5 w-5" />
-                    {nextQuiz.status === 'in_progress' ? '계속하기' : '지금 시작하기'}
-                  </Button>
-                  {nextQuiz.status === 'in_progress' && (
-                    <p className="text-xs text-center text-muted-foreground">
-                      진행 중인 퀴즈가 있습니다
-                    </p>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+            <Button
+              onClick={() => handleStartQuiz(nextQuiz.id)}
+              size="lg"
+              className="gap-2 shadow-md"
+            >
+              <Sparkles className="h-4 w-4" />
+              {nextQuiz.status === "in_progress" ? "이어서 학습하기" : "다음 학습 시작"}
+            </Button>
           )}
-
-          <Card>
-            <CardHeader>
-              <CardTitle>내 학습 목록</CardTitle>
-              <CardDescription>할당된 퀴즈</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {quizzes.length === 0 ? (
-                <p className="text-sm text-muted-foreground">할당된 퀴즈가 없습니다</p>
-              ) : (
-                quizzes.map((quiz) => (
-                  <div 
-                    key={quiz.id}
-                    className="flex items-center justify-between p-4 rounded-lg bg-muted/50 hover:bg-muted/80 transition-colors cursor-pointer"
-                    onClick={() => quiz.status !== 'completed' && handleStartQuiz(quiz.id)}
-                  >
-                    <div className="flex items-center gap-3 flex-1">
-                      {getStatusIcon(quiz.status)}
-                      <div>
-                        <p className="font-medium">{quiz.title}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {getStatusText(quiz.status)} 
-                          {quiz.status !== 'completed' && ` • ${quiz.estimatedTime}`}
-                          {quiz.status === 'completed' && quiz.score !== null && ` • ${quiz.score}점`}
-                        </p>
-                      </div>
-                    </div>
-                    {quiz.status !== 'completed' && (
-                      <Button variant="ghost" size="sm">시작</Button>
-                    )}
-                  </div>
-                ))
-              )}
-            </CardContent>
-          </Card>
         </div>
 
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>최근 학습 결과</CardTitle>
-              <CardDescription>최근 완료한 퀴즈</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {recentCompleted.length === 0 ? (
-                <p className="text-sm text-muted-foreground">완료한 퀴즈가 없습니다</p>
-              ) : (
-                recentCompleted.map((quiz) => (
-                  <div key={quiz.id} className="space-y-1">
-                    <p className="font-medium text-sm">{quiz.title}</p>
-                    <div className="flex items-center gap-2">
-                      <Badge variant={quiz.score >= 80 ? "default" : "secondary"}>
-                        {quiz.score}점
-                      </Badge>
-                      <span className="text-xs text-muted-foreground">
-                        {quiz.score >= 90 ? "잘 이해하셨어요!" : quiz.score >= 70 ? "훌륭합니다" : "복습을 권장합니다"}
-                      </span>
-                    </div>
-                  </div>
-                ))
-              )}
-            </CardContent>
-          </Card>
+        {/* Progress Bar */}
+        <div className="relative h-3 w-full rounded-full bg-muted overflow-hidden">
+          <div
+            className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-primary to-accent transition-all duration-700 ease-out"
+            style={{ width: `${overallProgress}%` }}
+          />
+        </div>
 
-          {feedback && (
-            <Card className="border-orange-200 bg-orange-50 dark:bg-orange-950/20">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <TrendingUp className="h-5 w-5" />
-                  학습 가이드
-                </CardTitle>
+        {/* Main Content Grid */}
+        <div className="grid gap-6 lg:grid-cols-3">
+          {/* Left: Quiz To-Do List */}
+          <div className="lg:col-span-2 space-y-4">
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <BookOpen className="h-5 w-5 text-primary" />
+                    <CardTitle className="text-lg">
+                      {selectedDate && quizzesForSelectedDate.length > 0
+                        ? `${format(selectedDate, "M월 d일", { locale: ko })} 학습 목록`
+                        : "전체 학습 목록"}
+                    </CardTitle>
+                  </div>
+                  <CardDescription>
+                    {quizzes.filter((q) => q.status !== "completed").length}개 남음
+                  </CardDescription>
+                </div>
               </CardHeader>
-              <CardContent>
-                <p className="text-sm">{feedback}</p>
-                <p className="text-xs text-muted-foreground mt-2">
-                  궁금한 점이 있으면 팀장님께 문의해 주세요.
-                </p>
+              <CardContent className="space-y-2">
+                {(quizzesForSelectedDate.length > 0 ? quizzesForSelectedDate : quizzes).length ===
+                0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <CalendarDays className="h-10 w-10 mx-auto mb-3 opacity-40" />
+                    <p className="text-sm">
+                      {quizzesForSelectedDate.length === 0 && selectedDate
+                        ? "이 날짜에 예정된 학습이 없습니다"
+                        : "할당된 학습이 없습니다"}
+                    </p>
+                  </div>
+                ) : (
+                  (quizzesForSelectedDate.length > 0 ? quizzesForSelectedDate : quizzes).map(
+                    (quiz) => (
+                      <div
+                        key={quiz.id}
+                        className="group flex items-center justify-between p-3 rounded-lg border border-transparent hover:border-border hover:bg-muted/40 transition-all cursor-pointer"
+                        onClick={() => quiz.status !== "completed" && handleStartQuiz(quiz.id)}
+                      >
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                          <div
+                            className={`flex-shrink-0 h-9 w-9 rounded-full flex items-center justify-center ${
+                              quiz.status === "completed"
+                                ? "bg-emerald-100 dark:bg-emerald-900/30"
+                                : quiz.status === "in_progress"
+                                ? "bg-sky-100 dark:bg-sky-900/30"
+                                : "bg-muted"
+                            }`}
+                          >
+                            {quiz.status === "completed" ? (
+                              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                            ) : quiz.status === "in_progress" ? (
+                              <PlayCircle className="h-4 w-4 text-sky-600" />
+                            ) : (
+                              <Clock className="h-4 w-4 text-muted-foreground" />
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <p
+                              className={`font-medium text-sm truncate ${
+                                quiz.status === "completed" ? "line-through text-muted-foreground" : ""
+                              }`}
+                            >
+                              {quiz.title}
+                            </p>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              {getStatusBadge(quiz.status, quiz.score)}
+                              <span className="text-xs text-muted-foreground">
+                                {quiz.estimatedTime}
+                              </span>
+                              {quiz.dueDate && (
+                                <span className="text-xs text-muted-foreground">
+                                  • 마감 {format(new Date(quiz.dueDate), "M/d")}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        {quiz.status !== "completed" && (
+                          <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+                        )}
+                      </div>
+                    )
+                  )
+                )}
               </CardContent>
             </Card>
-          )}
+          </div>
+
+          {/* Right: Calendar */}
+          <div className="space-y-4">
+            <Card>
+              <CardHeader className="pb-2">
+                <div className="flex items-center gap-2">
+                  <CalendarDays className="h-5 w-5 text-primary" />
+                  <CardTitle className="text-lg">학습 캘린더</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent className="flex justify-center">
+                <Calendar
+                  mode="single"
+                  selected={selectedDate}
+                  onSelect={(date) => date && setSelectedDate(date)}
+                  locale={ko}
+                  className="pointer-events-auto"
+                  modifiers={{
+                    hasDue: dueDates,
+                  }}
+                  modifiersStyles={{
+                    hasDue: {
+                      fontWeight: "bold",
+                      textDecoration: "underline",
+                      textDecorationColor: "hsl(var(--primary))",
+                      textUnderlineOffset: "4px",
+                    },
+                  }}
+                />
+              </CardContent>
+            </Card>
+
+            {/* Stats Summary */}
+            <Card>
+              <CardContent className="pt-6">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="text-center p-3 rounded-lg bg-muted/50">
+                    <p className="text-2xl font-bold text-primary">{completedCount}</p>
+                    <p className="text-xs text-muted-foreground mt-1">완료</p>
+                  </div>
+                  <div className="text-center p-3 rounded-lg bg-muted/50">
+                    <p className="text-2xl font-bold text-foreground">
+                      {quizzes.filter((q) => q.status === "in_progress").length}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">진행 중</p>
+                  </div>
+                  <div className="text-center p-3 rounded-lg bg-muted/50">
+                    <p className="text-2xl font-bold text-foreground">
+                      {quizzes.filter((q) => q.status === "not_started").length}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">시작 전</p>
+                  </div>
+                  <div className="text-center p-3 rounded-lg bg-muted/50">
+                    <p className="text-2xl font-bold text-accent-foreground">{overallProgress}%</p>
+                    <p className="text-xs text-muted-foreground mt-1">진행률</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </div>
     </EmployeeLayout>
