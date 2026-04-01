@@ -19,6 +19,7 @@ import { useToast } from "@/hooks/use-toast";
 import EmployeeLayout from "@/components/employee/EmployeeLayout";
 import { format, isSameDay } from "date-fns";
 import { ko } from "date-fns/locale";
+import CalendarNotes from "@/components/employee/CalendarNotes";
 
 interface QuizItem {
   id: string;
@@ -37,6 +38,7 @@ const EmployeeDashboard = () => {
   const [quizzes, setQuizzes] = useState<QuizItem[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [profileName, setProfileName] = useState("");
+  const [noteDates, setNoteDates] = useState<Date[]>([]);
 
   useEffect(() => {
     if (user) {
@@ -325,6 +327,7 @@ const EmployeeDashboard = () => {
                   className="pointer-events-auto"
                   modifiers={{
                     hasDue: dueDates,
+                    hasNote: noteDates,
                   }}
                   modifiersStyles={{
                     hasDue: {
@@ -333,10 +336,20 @@ const EmployeeDashboard = () => {
                       textDecorationColor: "hsl(var(--primary))",
                       textUnderlineOffset: "4px",
                     },
+                    hasNote: {
+                      backgroundColor: "hsl(var(--accent) / 0.2)",
+                      borderRadius: "50%",
+                    },
                   }}
                 />
               </CardContent>
             </Card>
+
+            {/* Calendar Notes */}
+            <CalendarNotes
+              selectedDate={selectedDate}
+              onNoteDatesChange={setNoteDates}
+            />
 
             {/* Stats Summary */}
             <Card>
