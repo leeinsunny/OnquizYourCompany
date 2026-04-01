@@ -38,6 +38,7 @@ const EmployeeDashboard = () => {
   const [quizzes, setQuizzes] = useState<QuizItem[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [profileName, setProfileName] = useState("");
+  const [noteDates, setNoteDates] = useState<Date[]>([]);
 
   useEffect(() => {
     if (user) {
