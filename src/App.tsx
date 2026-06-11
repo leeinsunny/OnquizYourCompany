@@ -132,6 +132,7 @@ const App = () => (
                 </ProtectedRoute>
               } 
             />
+            <Route path="/resources/onboarding-checklist" element={<OnboardingChecklist />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
