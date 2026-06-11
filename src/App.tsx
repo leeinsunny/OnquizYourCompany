@@ -20,6 +20,7 @@ import EmployeeQuizzes from "./pages/employee/Quizzes";
 import EmployeeProfile from "./pages/employee/Profile";
 import QuizTake from "./pages/employee/QuizTake";
 import ManagerDashboard from "./pages/manager/Dashboard";
+import OnboardingChecklist from "./pages/OnboardingChecklist";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -131,6 +132,7 @@ const App = () => (
                 </ProtectedRoute>
               } 
             />
+            <Route path="/resources/onboarding-checklist" element={<OnboardingChecklist />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
