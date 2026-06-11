@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
+import { Helmet } from "react-helmet-async";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useNavigate } from "react-router-dom";
@@ -116,6 +117,14 @@ const Signup = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <Helmet>
+        <title>회원가입 | OnQuiz</title>
+        <meta name="description" content="OnQuiz에 회사 이메일로 가입하고 온보딩 퀴즈를 시작하세요. 직급에 따라 자동으로 권한이 부여되어 바로 학습과 관리를 진행할 수 있습니다." />
+        <link rel="canonical" href="https://onquizyourcompany.com/signup" />
+        <meta property="og:title" content="회원가입 | OnQuiz" />
+        <meta property="og:description" content="OnQuiz에 회사 이메일로 가입하고 온보딩 퀴즈를 시작하세요." />
+        <meta property="og:url" content="https://onquizyourcompany.com/signup" />
+      </Helmet>
       <div className="container relative flex min-h-screen flex-col items-center justify-center py-8">
         <Button
           variant="ghost"
@@ -136,7 +145,7 @@ const Signup = () => {
 
           <Card>
             <CardHeader>
-              <CardTitle>계정 만들기</CardTitle>
+              <h2 className="text-2xl font-semibold leading-none tracking-tight">계정 만들기</h2>
               <CardDescription>
                 회사 이메일로 가입하시면 자동으로 회사와 연결됩니다
               </CardDescription>
