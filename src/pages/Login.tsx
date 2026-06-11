@@ -54,6 +54,14 @@ const Login = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <Helmet>
+        <title>로그인 | OnQuiz</title>
+        <meta name="description" content="OnQuiz 계정에 로그인하여 온보딩 퀴즈와 학습 진행 상황을 확인하세요. 회사 이메일과 비밀번호로 간편하게 접속할 수 있습니다." />
+        <link rel="canonical" href="https://onquizyourcompany.com/login" />
+        <meta property="og:title" content="로그인 | OnQuiz" />
+        <meta property="og:description" content="OnQuiz 계정에 로그인하여 온보딩 퀴즈와 학습 진행 상황을 확인하세요." />
+        <meta property="og:url" content="https://onquizyourcompany.com/login" />
+      </Helmet>
       <div className="container relative flex min-h-screen flex-col items-center justify-center py-8">
         <Button
           variant="ghost"
