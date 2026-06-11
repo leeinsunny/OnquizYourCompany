@@ -64,6 +64,14 @@ const Landing = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
+      <Helmet>
+        <title>OnQuiz - AI 기반 온보딩 퀴즈 플랫폼</title>
+        <meta name="description" content="기존 교육 자료만 업로드하면 AI가 온보딩 퀴즈를 자동 생성합니다. 팀·부서별 진행 상황을 추적하고 신입사원에게 일관된 온보딩 교육을 제공하세요." />
+        <link rel="canonical" href="https://onquizyourcompany.com/" />
+        <meta property="og:title" content="OnQuiz - AI 기반 온보딩 퀴즈 플랫폼" />
+        <meta property="og:description" content="기존 교육 자료만 업로드하면 AI가 온보딩 퀴즈를 자동 생성하는 온보딩 자동화 플랫폼." />
+        <meta property="og:url" content="https://onquizyourcompany.com/" />
+      </Helmet>
       {/* Header */}
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container flex h-16 items-center justify-between">
