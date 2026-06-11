@@ -82,7 +82,9 @@ const Login = () => {
 
           <Card>
             <CardHeader>
-              <CardTitle>로그인</CardTitle>
+              <CardTitle asChild>
+                <h2>로그인</h2>
+              </CardTitle>
               <CardDescription>
                 회사 이메일과 비밀번호를 입력해주세요
               </CardDescription>
