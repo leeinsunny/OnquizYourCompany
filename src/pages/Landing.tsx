@@ -107,6 +107,11 @@ const Landing = () => {
       {/* Core Value Section */}
       <section className="container py-16 md:py-20">
         <div className="mx-auto max-w-5xl">
+          <div className="mb-12 text-center">
+            <h2 className="mb-3 text-3xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text">
+              핵심 가치
+            </h2>
+          </div>
           <div className="grid gap-8 md:grid-cols-3">
             {coreValues.map((value, index) => (
               <Card
