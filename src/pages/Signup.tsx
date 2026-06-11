@@ -117,6 +117,14 @@ const Signup = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <Helmet>
+        <title>회원가입 | OnQuiz</title>
+        <meta name="description" content="OnQuiz에 회사 이메일로 가입하고 온보딩 퀴즈를 시작하세요. 직급에 따라 자동으로 권한이 부여되어 바로 학습과 관리를 진행할 수 있습니다." />
+        <link rel="canonical" href="https://onquizyourcompany.com/signup" />
+        <meta property="og:title" content="회원가입 | OnQuiz" />
+        <meta property="og:description" content="OnQuiz에 회사 이메일로 가입하고 온보딩 퀴즈를 시작하세요." />
+        <meta property="og:url" content="https://onquizyourcompany.com/signup" />
+      </Helmet>
       <div className="container relative flex min-h-screen flex-col items-center justify-center py-8">
         <Button
           variant="ghost"
