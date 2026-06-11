@@ -145,7 +145,7 @@ const Signup = () => {
 
           <Card>
             <CardHeader>
-              <CardTitle>계정 만들기</CardTitle>
+              <h2 className="text-2xl font-semibold leading-none tracking-tight">계정 만들기</h2>
               <CardDescription>
                 회사 이메일로 가입하시면 자동으로 회사와 연결됩니다
               </CardDescription>
