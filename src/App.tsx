@@ -20,6 +20,7 @@ import EmployeeQuizzes from "./pages/employee/Quizzes";
 import EmployeeProfile from "./pages/employee/Profile";
 import QuizTake from "./pages/employee/QuizTake";
 import ManagerDashboard from "./pages/manager/Dashboard";
+import OnboardingChecklist from "./pages/OnboardingChecklist";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
